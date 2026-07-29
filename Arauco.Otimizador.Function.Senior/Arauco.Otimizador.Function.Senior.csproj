@@ -1,0 +1,35 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<GenerateRuntimeConfigurationFiles>true</GenerateRuntimeConfigurationFiles>
+		<AWSProjectType>Lambda</AWSProjectType>
+		<!-- This property makes the build directory similar to a publish directory and helps the AWS .NET Lambda Mock Test Tool find project dependencies. -->
+		<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+		<!-- Generate ready to run images during publishing to improve cold start time. -->
+		
+    <RuntimeIdentifier>linux-x64</RuntimeIdentifier>
+	</PropertyGroup>
+	<ItemGroup>
+		<PackageReference Include="Amazon.Lambda.Core" Version="3.2.0" />
+		<PackageReference Include="Amazon.Lambda.Serialization.SystemTextJson" Version="3.0.0" />
+		<PackageReference Include="System.ServiceModel.Duplex" Version="6.0.0" />
+		<PackageReference Include="System.ServiceModel.Federation" Version="8.1.2" />
+		<PackageReference Include="System.ServiceModel.Http" Version="8.1.2" />
+		<PackageReference Include="System.ServiceModel.NetTcp" Version="8.1.2" />
+		<PackageReference Include="System.ServiceModel.Security" Version="6.0.0" />
+	</ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\Arauco.Otimizador.Aws.Shared\Arauco.Otimizador.Aws.Shared.csproj" />
+		<ProjectReference Include="..\Arauco.Otimizador.Data.MySql\Arauco.Otimizador.Data.MySql.csproj" />
+		<ProjectReference Include="..\Arauco.Otimizador.Function.Base\Arauco.Otimizador.Function.Base.csproj" />
+		<ProjectReference Include="..\Techer.Aws.Cognito\Techer.Aws.Cognito.csproj" />
+		<ProjectReference Include="..\Techer.Common.Id\Techer.Common.Id.csproj" />
+		<ProjectReference Include="..\Techer.Common.Extensions\Techer.Common.Extensions.csproj" />
+	</ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="System.ServiceModel.Primitives" Version="8.*" />
+	</ItemGroup>
+</Project>

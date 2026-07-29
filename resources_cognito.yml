@@ -1,0 +1,179 @@
+﻿AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  arauco-otimizador-resources-cognito
+
+Transform:
+- AWS::Serverless-2016-10-31
+
+Parameters:
+  ENV:
+    Description: Required. Environment dev/test/prod
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - test
+      - prod
+      
+Resources:
+  # EXTERNAL #
+  ExternalUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: external-user-pool
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: true
+      AliasAttributes:
+        - preferred_username
+      UsernameConfiguration: 
+        CaseSensitive: false
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireLowercase: false
+          RequireNumbers: false
+          RequireSymbols: false
+          RequireUppercase: false
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: admin_only
+            Priority: 1
+      Schema:
+        - Name: name
+          Required: false
+          Mutable: true
+  
+  RestaurantePoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: restaurante-app
+      GenerateSecret: false
+      UserPoolId: !Ref ExternalUserPool
+      EnableTokenRevocation: false
+      RefreshTokenValidity: 1
+      AccessTokenValidity: 60
+      IdTokenValidity: 60
+      TokenValidityUnits:
+        AccessToken: minutes
+        IdToken: minutes
+        RefreshToken: days
+      ExplicitAuthFlows:
+        - ALLOW_ADMIN_USER_PASSWORD_AUTH
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+
+  HospedagemPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: hospedagem-app
+      GenerateSecret: false
+      UserPoolId: !Ref ExternalUserPool
+      EnableTokenRevocation: false
+      RefreshTokenValidity: 1
+      AccessTokenValidity: 60
+      IdTokenValidity: 60
+      TokenValidityUnits:
+        AccessToken: minutes
+        IdToken: minutes
+        RefreshToken: days
+      ExplicitAuthFlows:
+        - ALLOW_ADMIN_USER_PASSWORD_AUTH
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+
+  LogisticaPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: logistica-app
+      GenerateSecret: false
+      UserPoolId: !Ref ExternalUserPool
+      EnableTokenRevocation: false
+      RefreshTokenValidity: 1
+      AccessTokenValidity: 60
+      IdTokenValidity: 60
+      TokenValidityUnits:
+        AccessToken: minutes
+        IdToken: minutes
+        RefreshToken: days
+      ExplicitAuthFlows:
+        - ALLOW_ADMIN_USER_PASSWORD_AUTH
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+
+  # INTERNAL #
+  InternalUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: internal-user-pool
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: true
+      AliasAttributes:
+        - preferred_username
+      UsernameConfiguration: 
+        CaseSensitive: false
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireLowercase: false
+          RequireNumbers: false
+          RequireSymbols: false
+          RequireUppercase: false
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: admin_only
+            Priority: 1
+      Schema:
+        - Name: name
+          Required: false
+          Mutable: true
+  
+  GestaoPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: gestao-app
+      GenerateSecret: false
+      UserPoolId: !Ref InternalUserPool
+      EnableTokenRevocation: false
+      RefreshTokenValidity: 1
+      AccessTokenValidity: 60
+      IdTokenValidity: 60
+      TokenValidityUnits:
+        AccessToken: minutes
+        IdToken: minutes
+        RefreshToken: days
+      ExplicitAuthFlows:
+        - ALLOW_ADMIN_USER_PASSWORD_AUTH
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+
+Outputs:
+  ExternalUserPoolId:
+    Value: !Ref ExternalUserPool
+    Export:
+      Name: HubExternalUserPoolId
+
+  RestaurantePoolClientId:
+    Value: !Ref RestaurantePoolClient
+    Export:
+      Name: RestaurantePoolClientId
+
+  LogisticaPoolClientId:
+    Value: !Ref LogisticaPoolClient
+    Export:
+      Name: LogisticaPoolClientId
+ 
+  InternalUserPoolId:
+    Value: !Ref InternalUserPool
+    Export:
+      Name: InternalUserPoolId
+
+  GestaoPoolClientId:
+    Value: !Ref GestaoPoolClient
+    Export:
+      Name: GestaoPoolClientId
+
+ 

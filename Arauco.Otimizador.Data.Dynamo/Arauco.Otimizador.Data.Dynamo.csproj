@@ -1,0 +1,19 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="FlowRepository.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Arauco.Otimizador.Common.Domain\Arauco.Otimizador.Common.Domain.csproj" />
+    <ProjectReference Include="..\Techer.Aws.Dynamo\Techer.Aws.Dynamo.csproj" />
+    <ProjectReference Include="..\Techer.Common.Extensions\Techer.Common.Extensions.csproj" />
+  </ItemGroup>
+
+</Project>

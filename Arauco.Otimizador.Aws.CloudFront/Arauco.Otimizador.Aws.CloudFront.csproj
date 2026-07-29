@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Certificates\pk-##########.pem" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Techer.Aws.Shared\Techer.Aws.Shared.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+	<PackageReference Include="AWSSDK.CloudFront" Version="3.7.510.7" />
+  </ItemGroup>
+
+</Project>

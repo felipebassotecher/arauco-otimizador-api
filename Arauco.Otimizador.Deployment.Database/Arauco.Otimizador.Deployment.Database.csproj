@@ -1,0 +1,23 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Scripts\Script001 - Cartao.sql" />
+  </ItemGroup>
+
+  <ItemGroup>
+	<PackageReference Include="dbup-mysql" Version="6.1.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Arauco.Otimizador.Data.MySql\Arauco.Otimizador.Data.MySql.csproj" />
+    <ProjectReference Include="..\Techer.Aws.Secrets\Techer.Aws.Secrets.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,92 @@
+﻿AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  arauco-otimizador-email-outbound
+
+Transform:
+- AWS::Serverless-2016-10-31
+
+Parameters:
+  ENV:
+    Description: Required. Environment dev/test/prod
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - test
+      - prod
+
+Mappings:
+  dev:
+    values:
+      AspNetEnv: Development
+
+  test:
+    values:
+      AspNetEnv: Testing
+
+  prod:
+    values:
+      AspNetEnv: Production
+
+Globals:
+  Function:
+    VpcConfig:
+      SecurityGroupIds:
+        - !ImportValue stack-setup-AppSecurityGroup
+      SubnetIds:
+        - !ImportValue stack-setup-PrivateSubnet0
+        - !ImportValue stack-setup-PrivateSubnet1
+        - !ImportValue stack-setup-PrivateSubnet2
+    Environment:
+      Variables:
+        ASPNETCORE_ENVIRONMENT: !FindInMap [ !Ref ENV, values, AspNetEnv ]
+
+Resources:
+  EmailOutboundQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: email-outbound
+      MaximumMessageSize: 262144
+      DelaySeconds: 0
+      MessageRetentionPeriod: 172800
+      ReceiveMessageWaitTimeSeconds: 20
+      VisibilityTimeout: 1000
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt EmailOutboundDLQQueue.Arn
+        maxReceiveCount: 3
+
+  EmailOutboundDLQQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: email-outbound-dlq
+      MaximumMessageSize: 262144
+      DelaySeconds: 0
+      MessageRetentionPeriod: 1209600
+      ReceiveMessageWaitTimeSeconds: 20
+      VisibilityTimeout: 300
+
+  EmailOutboundFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: email-outbound
+      Description: Processamento para envio de emails
+      Handler: Arauco.Otimizador.Function.EmailOutbound::Arauco.Otimizador.Function.EmailOutbound.Function::FunctionHandler
+      MemorySize: 1024
+      Timeout: 45
+      Runtime: dotnet10
+      Events:
+        SQSQueueEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt EmailOutboundQueue.Arn
+            BatchSize: 1
+      Policies:
+        - S3ReadPolicy:
+            BucketName: '*'
+        - Statement:
+          - Sid: SesPolicy
+            Effect: Allow
+            Action:
+              - ses:SendRawEmail
+              - ses:SendEmail
+            Resource: '*'

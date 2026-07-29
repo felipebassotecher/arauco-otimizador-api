@@ -1,0 +1,361 @@
+﻿AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  arauco-otimizador-setup
+
+Transform: AWS::Serverless-2016-10-31
+
+Parameters:
+  ENV:
+    Description: Required. Environment dev/test/prod
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - test
+      - prod
+
+Mappings:
+  dev:
+    values:
+      CidrBlock: 172.25.0.0/16
+      PrivateSubnetCidrBlock1: 172.25.0.0/20
+      PrivateSubnetCidrBlock2: 172.25.16.0/20
+      PrivateSubnetCidrBlock3: 172.25.32.0/20
+      PublicSubnetCidrBlock1: 172.25.48.0/20
+      PublicSubnetCidrBlock2: 172.25.64.0/20
+      PublicSubnetCidrBlock3: 172.25.80.0/20
+      DbHost: arauco-otimizador-dev.cyjohwpuchn8.sa-east-1.rds.amazonaws.com
+      DbName: otimizador-dev
+      DbUsername: otimizador-dev
+      DbPassword: 1R_cop?+fr6Nlb=okiH1
+
+  qa:
+    values:
+      CidrBlock: 172.26.0.0/16
+      PrivateSubnetCidrBlock1: 172.26.0.0/20
+      PrivateSubnetCidrBlock2: 172.26.16.0/20
+      PrivateSubnetCidrBlock3: 172.26.32.0/20
+      PublicSubnetCidrBlock1: 172.26.48.0/20
+      PublicSubnetCidrBlock2: 172.26.64.0/20
+      PublicSubnetCidrBlock3: 172.26.80.0/20
+      DbHost: db.test.otimizador.arauco.app.br
+      DbName: otimizador-test
+      DbUsername: otimizador-test
+      DbPassword: j@q5r!th1?3@LyAwlb44
+
+  prod:
+    values:
+      CidrBlock: 172.27.0.0/16
+      PrivateSubnetCidrBlock1: 172.27.0.0/20
+      PrivateSubnetCidrBlock2: 172.27.16.0/20
+      PrivateSubnetCidrBlock3: 172.27.32.0/20
+      PublicSubnetCidrBlock1: 172.27.48.0/20
+      PublicSubnetCidrBlock2: 172.27.64.0/20
+      PublicSubnetCidrBlock3: 172.27.80.0/20
+      DbHost: db.prod.otimizador.arauco.app.br
+      DbName: otimizador-prod
+      DbUsername: otimizador-prod
+      DbPassword: 7Tl!eceJEj7C8E$if8a3
+
+Resources:
+
+  MainVpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !FindInMap [ !Ref ENV, values, CidrBlock ]
+      EnableDnsSupport: true
+      InstanceTenancy: default
+      EnableDnsHostnames: true
+      Tags:
+       - Key: Name
+         Value: main-vpc
+         
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+
+  InternetGatewayMainVpcAttchment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref MainVpc
+
+  # PRIVATE ROUTE
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref MainVpc
+      Tags:
+        - Key: Name
+          Value: private-route
+
+  PrivateRouteTableSubnet0:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnet0
+
+  PrivateRouteTableSubnet1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnet1
+
+  PrivateRouteTableSubnet2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnet2
+
+  # PUBLIC ROUTE
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref MainVpc
+      Tags:
+        - Key: Name
+          Value: public-route
+
+  InternetGatewayRoute:
+    Type: AWS::EC2::Route
+    DependsOn: InternetGatewayMainVpcAttchment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicRouteTableSubnet0:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet0
+
+  PublicRouteTableSubnet1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet1
+
+  PublicRouteTableSubnet2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet2
+
+  #SUBNETS
+  PrivateSubnet0:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MainVpc
+      AvailabilityZone:
+        Fn::Select:
+          - 0
+          - Fn::GetAZs: ""
+      CidrBlock: !FindInMap [ !Ref ENV, values, PrivateSubnetCidrBlock1 ]
+      Tags: 
+        - Key: Name
+          Value: private-subnet-0
+      
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MainVpc
+      AvailabilityZone:
+        Fn::Select:
+          - 1
+          - Fn::GetAZs: ""
+      CidrBlock: !FindInMap [ !Ref ENV, values, PrivateSubnetCidrBlock2 ]
+      Tags: 
+        - Key: Name
+          Value: private-subnet-1
+
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MainVpc
+      AvailabilityZone:
+        Fn::Select:
+          - 2
+          - Fn::GetAZs: ""
+      CidrBlock: !FindInMap [ !Ref ENV, values, PrivateSubnetCidrBlock3 ]
+      Tags: 
+        - Key: Name
+          Value: private-subnet-2
+
+  PublicSubnet0:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MainVpc
+      AvailabilityZone:
+        Fn::Select:
+          - 0
+          - Fn::GetAZs: ""
+      CidrBlock: !FindInMap [ !Ref ENV, values, PublicSubnetCidrBlock1 ]
+      Tags: 
+        - Key: Name
+          Value: public-subnet-0
+      
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MainVpc
+      AvailabilityZone:
+        Fn::Select:
+          - 1
+          - Fn::GetAZs: ""
+      CidrBlock: !FindInMap [ !Ref ENV, values, PublicSubnetCidrBlock2 ]
+      Tags: 
+        - Key: Name
+          Value: public-subnet-1
+
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MainVpc
+      AvailabilityZone:
+        Fn::Select:
+          - 2
+          - Fn::GetAZs: ""
+      CidrBlock: !FindInMap [ !Ref ENV, values, PublicSubnetCidrBlock3 ]
+      Tags: 
+        - Key: Name
+          Value: public-subnet-2
+
+  # ENDPOINTS
+  #SecretsManagerEndPoint:
+  #  Type: AWS::EC2::VPCEndpoint
+  #  Properties:
+  #    VpcId: !Ref MainVpc
+  #    VpcEndpointType: Interface
+  #    ServiceName: !Sub com.amazonaws.${AWS::Region}.secretsmanager
+  #    PrivateDnsEnabled: true
+  #    SubnetIds:
+  #      - !Ref PrivateSubnet0
+  #      - !Ref PrivateSubnet1
+  #      - !Ref PrivateSubnet2
+  #    SecurityGroupIds:
+  #      - !Ref AppSecurityGroup
+
+  #S3GatewayEndPoint:
+  #  Type: AWS::EC2::VPCEndpoint
+  #  Properties:
+  #    VpcId: !Ref MainVpc
+  #    VpcEndpointType: Gateway
+  #    RouteTableIds:
+  #      - !Ref PrivateRouteTable
+  #    ServiceName: !Sub com.amazonaws.${AWS::Region}.s3
+
+  #DynamoGatewayEndPoint:
+  #  Type: AWS::EC2::VPCEndpoint
+  #  Properties:
+  #    VpcId: !Ref MainVpc
+  #    VpcEndpointType: Gateway
+  #    RouteTableIds:
+  #      - !Ref PrivateRouteTable
+  #    ServiceName: !Sub com.amazonaws.${AWS::Region}.dynamodb
+  
+  #ApiGatewayPrivateEndpoint:
+  #  Type: AWS::EC2::VPCEndpoint
+  #  Properties:
+  #    VpcId: !Ref MainVpc
+  #    VpcEndpointType: Interface
+  #    ServiceName: com.amazonaws.sa-east-1.execute-api
+  #    PrivateDnsEnabled: true
+  #    SubnetIds:
+  #      - !Ref PrivateSubnet0
+  #      - !Ref PrivateSubnet1
+  #      - !Ref PrivateSubnet2
+  #    SecurityGroupIds:
+  #      - !Ref AppSecurityGroup
+
+  # SECURITY GROUPS
+  AppSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: App Security Group
+      GroupName: AppSG
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          FromPort: -1
+          ToPort: -1
+          CidrIp: 0.0.0.0/0
+      SecurityGroupIngress:
+        - IpProtocol: -1
+          FromPort: -1
+          ToPort: -1
+          CidrIp: !GetAtt MainVpc.CidrBlock
+      VpcId: !Ref MainVpc    
+
+  # DNS
+  PublicDns:
+    Type: AWS::Route53::HostedZone
+    Properties:
+      HostedZoneConfig:
+        Comment: Public Hosted Zone
+      Name: !Sub "${ENV}.otimizador.arauco.app.br"
+
+  TecherSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Techer Security Group
+      GroupName: TecherSG
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          FromPort: -1
+          ToPort: -1
+          CidrIp: 0.0.0.0/0
+      VpcId: !Ref MainVpc
+
+  # DEFAULT SECRET
+  DefaultDbSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: DefaultDb
+      Description: 'Default secret'
+      SecretString: !Sub
+        - '{"engine": "mysql", "host": "${Host}", "port": "3306", "dbname": "${Db}", "username": "${Username}", "password": "${Password}" }'
+        - Db: !FindInMap [ !Ref ENV, values, DbName ]
+          Host: !FindInMap [ !Ref ENV, values, DbHost ]
+          Username: !FindInMap [ !Ref ENV, values, DbUsername ]
+          Password: !FindInMap [ !Ref ENV, values, DbPassword ]
+
+Outputs:
+  VPC:
+    Description: ID of the VPC
+    Value: !Ref MainVpc
+    Export:
+      Name: !Sub "${AWS::StackName}-MainVPC"
+  PublicSubnet0:
+    Description: ID Public Subnet 0
+    Value: !Ref PublicSubnet0
+    Export:
+      Name: !Sub "${AWS::StackName}-PublicSubnet0"
+  PublicSubnet1:
+    Description: ID Public Subnet 1
+    Value: !Ref PublicSubnet1
+    Export:
+      Name: !Sub "${AWS::StackName}-PublicSubnet1"
+  PublicSubnet2:
+    Description: ID Public Subnet 2
+    Value: !Ref PublicSubnet2
+    Export:
+      Name: !Sub "${AWS::StackName}-PublicSubnet2"
+  PrivateSubnet0:
+    Description: ID Private Subnet 0
+    Value: !Ref PrivateSubnet0
+    Export:
+      Name: !Sub "${AWS::StackName}-PrivateSubnet0"
+  PrivateSubnet1:
+    Description: ID Private Subnet 1
+    Value: !Ref PrivateSubnet1
+    Export:
+      Name: !Sub "${AWS::StackName}-PrivateSubnet1"
+  PrivateSubnet2:
+    Description: ID Private Subnet 2
+    Value: !Ref PrivateSubnet2
+    Export:
+      Name: !Sub "${AWS::StackName}-PrivateSubnet2"
+  AppSecurityGroup:
+    Description: App Security Group
+    Value: !Ref AppSecurityGroup
+    Export:
+      Name: !Sub "${AWS::StackName}-AppSecurityGroup"

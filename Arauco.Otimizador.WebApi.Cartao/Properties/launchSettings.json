@@ -1,0 +1,17 @@
+﻿{
+  "profiles": {
+    "Arauco.Otimizador.WebApi": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Local"
+      },
+      "applicationUrl": "http://localhost:5500"
+    },
+    "Mock Lambda Test Tool": {
+      "commandName": "Executable",
+      "commandLineArgs": "--port 5500",
+      "workingDirectory": ".\\bin\\$(Configuration)\\net10.0",
+      "executablePath": "%USERPROFILE%\\.dotnet\\tools\\dotnet-lambda-test-tool-10.0.exe"
+    }
+  }
+}

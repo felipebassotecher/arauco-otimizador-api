@@ -1,0 +1,18 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+	<PackageReference Include="AWSSDK.CognitoIdentityProvider" Version="3.7.203.17" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Techer.Aws.Shared\Techer.Aws.Shared.csproj" />
+    <ProjectReference Include="..\Techer.Common.Domain\Techer.Common.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

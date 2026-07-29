@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Gestao\**" />
+    <EmbeddedResource Remove="Gestao\**" />
+    <None Remove="Gestao\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Arauco.Otimizador.Common.Domain\Arauco.Otimizador.Common.Domain.csproj" />
+    <ProjectReference Include="..\Techer.Common.Domain\Techer.Common.Domain.csproj" />
+    <ProjectReference Include="..\Techer.Common.Json\Techer.Common.Json.csproj" />
+  </ItemGroup>
+
+</Project>

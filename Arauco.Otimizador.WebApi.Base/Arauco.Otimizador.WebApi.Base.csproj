@@ -1,0 +1,17 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Arauco.Otimizador.Aws.Shared\Arauco.Otimizador.Aws.Shared.csproj" />
+    <ProjectReference Include="..\Arauco.Otimizador.Common.Domain\Arauco.Otimizador.Common.Domain.csproj" />
+    <ProjectReference Include="..\Arauco.Otimizador.Data.Dynamo\Arauco.Otimizador.Data.Dynamo.csproj" />
+    <ProjectReference Include="..\Techer.Common.Json\Techer.Common.Json.csproj" />
+    <ProjectReference Include="..\Techer.Common.WebApi\Techer.Common.WebApi.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,23 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.IdentityModel.Protocols.OpenIdConnect" Version="6.10.0" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="6.10.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+	<ProjectReference Include="..\Arauco.Otimizador.Aws.Shared\Arauco.Otimizador.Aws.Shared.csproj" />
+	<ProjectReference Include="..\Arauco.Otimizador.Common.Email\Arauco.Otimizador.Common.Email.csproj" />
+	<ProjectReference Include="..\Arauco.Otimizador.Service.Base\Arauco.Otimizador.Service.Base.csproj" />
+	<ProjectReference Include="..\Arauco.Otimizador.Service.CognitoService\Arauco.Otimizador.Service.CognitoService.csproj" />
+	<ProjectReference Include="..\Techer.Aws.Cognito\Techer.Aws.Cognito.csproj" />
+	<ProjectReference Include="..\Techer.Common.Id\Techer.Common.Id.csproj" />
+  </ItemGroup>
+
+</Project>

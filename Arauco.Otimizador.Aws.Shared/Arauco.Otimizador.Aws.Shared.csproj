@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Arauco.Otimizador.Common.Domain\Arauco.Otimizador.Common.Domain.csproj" />
+    <ProjectReference Include="..\Techer.Aws.Cognito\Techer.Aws.Cognito.csproj" />
+    <ProjectReference Include="..\Techer.Aws.Shared\Techer.Aws.Shared.csproj" />
+  </ItemGroup>
+
+</Project>

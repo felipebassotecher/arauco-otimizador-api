@@ -1,0 +1,41 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+	<OutputType>Exe</OutputType>
+	<TargetFramework>net10.0</TargetFramework>
+	<ImplicitUsings>enable</ImplicitUsings>
+	<Nullable>enable</Nullable>
+	<GenerateRuntimeConfigurationFiles>true</GenerateRuntimeConfigurationFiles>
+	<AWSProjectType>Lambda</AWSProjectType>
+	<!-- This property makes the build directory similar to a publish directory and helps the AWS .NET Lambda Mock Test Tool find project dependencies. -->
+	<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+	<!-- Generate ready to run images during publishing to improve cold start time. -->
+	
+    <RuntimeIdentifier>linux-x64</RuntimeIdentifier>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="Certificates\Development.pem" />
+    <None Remove="Certificates\Production.pem" />
+    <None Remove="Certificates\Testing.pem" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Certificates\Production.pem" />
+    <EmbeddedResource Include="Certificates\Testing.pem" />
+    <EmbeddedResource Include="Certificates\Development.pem" />
+  </ItemGroup>
+
+  <ItemGroup>
+	<PackageReference Include="Amazon.Lambda.AspNetCoreServer" Version="10.1.1" />
+	<PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="10.0.10" />
+	<PackageReference Include="Portable.BouncyCastle" Version="1.9.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Arauco.Otimizador.Common.Domain\Arauco.Otimizador.Common.Domain.csproj" />
+    <ProjectReference Include="..\Arauco.Otimizador.Data.Dynamo\Arauco.Otimizador.Data.Dynamo.csproj" />
+    <ProjectReference Include="..\Techer.Common.Json\Techer.Common.Json.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,90 @@
+﻿AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  arauco-otimizador-api-resources
+
+Transform:
+- AWS::Serverless-2016-10-31
+
+Parameters:
+  ENV:
+    Description: Required. Environment dev/test/prod
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - test
+      - prod
+      
+Resources:
+  KeyValueTable:
+    Type: AWS::DynamoDB::Table
+    Properties: 
+      TableName: OtimizadorKeyValue
+      AttributeDefinitions: 
+        - AttributeName: Key
+          AttributeType: S
+      KeySchema: 
+        - AttributeName: Key
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+      TimeToLiveSpecification:
+        AttributeName: TTL
+        Enabled: true
+
+  LogTable:
+    Type: AWS::DynamoDB::Table
+    Properties: 
+      TableName: OtimizadorLog
+      AttributeDefinitions: 
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: Sort
+          AttributeType: S
+      KeySchema: 
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: Sort
+          KeyType: RANGE
+      BillingMode: PAY_PER_REQUEST
+      TimeToLiveSpecification:
+        AttributeName: TTL
+        Enabled: true
+
+  StorageBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub
+        - 'arauco-otimizador-${Env}'
+        - Env: !Ref ENV
+      NotificationConfiguration:
+        EventBridgeConfiguration:
+          EventBridgeEnabled: false
+
+  TempBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub
+        - 'arauco-otimizador-temp-${Env}'
+        - Env: !Ref ENV
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldFiles
+            Status: Enabled
+            ExpirationInDays: 7
+            NoncurrentVersionExpirationInDays: 7
+
+  FileUploadUser:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: otimizador-file-upload
+  
+Outputs:
+  StorageBucketName:
+    Value: !Ref StorageBucket
+    Export:
+      Name: OtimizadorStorageBucketName
+
+  TempBucketName:
+    Value: !Ref TempBucket
+    Export:
+      Name: OtimizadorTempBucketName

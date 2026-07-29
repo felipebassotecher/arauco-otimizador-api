@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Arauco.Otimizador.Data.MySql\Arauco.Otimizador.Data.MySql.csproj" />
+    <ProjectReference Include="..\Arauco.Otimizador.Service.CartaoService\Arauco.Otimizador.Service.CartaoService.csproj" />
+    <ProjectReference Include="..\Arauco.Otimizador.WebApi.Base\Arauco.Otimizador.WebApi.Base.csproj" />
+    <ProjectReference Include="..\Techer.Common.Domain\Techer.Common.Domain.csproj" />
+    <ProjectReference Include="..\Techer.Common.WebApi\Techer.Common.WebApi.csproj" />
+  </ItemGroup>
+
+</Project>
