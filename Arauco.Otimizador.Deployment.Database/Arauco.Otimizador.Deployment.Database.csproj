@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Scripts\Script001 - Cartao.sql" />
+    <EmbeddedResource Include="Scripts\Script002 - Otimizador.sql" />
   </ItemGroup>
 
   <ItemGroup>

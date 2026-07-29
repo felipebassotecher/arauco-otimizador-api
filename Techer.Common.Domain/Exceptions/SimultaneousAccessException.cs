@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace Techer.Common.Domain.Exceptions
+﻿namespace Techer.Common.Domain.Exceptions
 {
     public class SimultaneousAccessException : Exception
     {

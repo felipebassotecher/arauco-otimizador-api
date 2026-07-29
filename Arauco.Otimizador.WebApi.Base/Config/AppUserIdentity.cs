@@ -1,5 +1,4 @@
-﻿using Arauco.Otimizador.Common.Domain.Enums;
-using Arauco.Otimizador.Common.Domain.Interfaces;
+﻿using Arauco.Otimizador.Common.Domain.Interfaces;
 using Microsoft.AspNetCore.Http;
 
 namespace Arauco.Otimizador.WebApi.Base.Config;

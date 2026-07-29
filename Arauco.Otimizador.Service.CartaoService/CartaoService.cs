@@ -16,7 +16,7 @@ public class CartaoService : ServiceBase, ICartaoService
 {
     public CartaoService(IUnitOfWork unitOfWork, IEnvironmentVariables environmentVariables) : base(unitOfWork, environmentVariables)
     {
-        
+
     }
 
     public async Task<List<CartaoListaModel>> ListarAsync(AppSessionModel session)
@@ -81,7 +81,7 @@ public class CartaoService : ServiceBase, ICartaoService
         var cartao = await unitOfWork
             .CartaoRepository
             .Where(c => c.CartaoId == cartaoId)
-            .Select(c => new 
+            .Select(c => new
             {
                 Id = c.CartaoId,
                 RemetenteId = c.ColaboradorId_Remetente,

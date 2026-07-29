@@ -23,6 +23,64 @@ public class UnitOfWork : IUnitOfWork
         }
     }
 
+    // Cenario
+    private IGenericRepository<Entities.Cenario.Cenario> cenarioRepository;
+    public IGenericRepository<Entities.Cenario.Cenario> CenarioRepository
+    {
+        get
+        {
+            return this.cenarioRepository ??= new GenericRepository<DbContext, Entities.Cenario.Cenario>(context);
+        }
+    }
+
+    private IGenericRepository<Entities.Cenario.CenarioParametro> cenarioParametroRepository;
+    public IGenericRepository<Entities.Cenario.CenarioParametro> CenarioParametroRepository
+    {
+        get
+        {
+            return this.cenarioParametroRepository ??= new GenericRepository<DbContext, Entities.Cenario.CenarioParametro>(context);
+        }
+    }
+
+    // Parametro
+    private IGenericRepository<Entities.Parametro.Parametro> parametroRepository;
+    public IGenericRepository<Entities.Parametro.Parametro> ParametroRepository
+    {
+        get
+        {
+            return this.parametroRepository ??= new GenericRepository<DbContext, Entities.Parametro.Parametro>(context);
+        }
+    }
+
+    private IGenericRepository<Entities.Parametro.ParametroValor> parametroValorRepository;
+    public IGenericRepository<Entities.Parametro.ParametroValor> ParametroValorRepository
+    {
+        get
+        {
+            return this.parametroValorRepository ??= new GenericRepository<DbContext, Entities.Parametro.ParametroValor>(context);
+        }
+    }
+
+    // Demanda
+    private IGenericRepository<Entities.Demanda.Demanda> demandaRepository;
+    public IGenericRepository<Entities.Demanda.Demanda> DemandaRepository
+    {
+        get
+        {
+            return this.demandaRepository ??= new GenericRepository<DbContext, Entities.Demanda.Demanda>(context);
+        }
+    }
+
+    // Pedido
+    private IGenericRepository<Entities.Pedido.Pedido> pedidoRepository;
+    public IGenericRepository<Entities.Pedido.Pedido> PedidoRepository
+    {
+        get
+        {
+            return this.pedidoRepository ??= new GenericRepository<DbContext, Entities.Pedido.Pedido>(context);
+        }
+    }
+
     public async Task SaveAsync()
     {
         await context.SaveChangesAsync();

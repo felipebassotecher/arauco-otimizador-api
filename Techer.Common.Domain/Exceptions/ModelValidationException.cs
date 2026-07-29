@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-
-namespace Techer.Common.Domain.Exceptions
+﻿namespace Techer.Common.Domain.Exceptions
 {
     public class ModelValidationException : Exception
     {

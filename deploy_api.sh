@@ -27,20 +27,6 @@ sam deploy \
 # Functions
 # --------------------------------------------------
 
-cd Arauco.Otimizador.Function.Cognito
-
-cd ../Arauco.Otimizador.Function.Cognito
-dotnet restore
-dotnet lambda deploy-serverless \
-    --configuration Release \
-    --region $AWS_REGION \
-    --s3-bucket arauco-$ENVIRONMENT-deploys \
-    --s3-prefix api/stack-cognito-function \
-    --stack-name stack-cognito-function \
-    --template serverless.yml \
-    --template-parameters "ENV=$ENVIRONMENT"
-
-
 # cd ../Arauco.Otimizador.Function.EmailOutbound
 # dotnet restore
 # dotnet lambda deploy-serverless \

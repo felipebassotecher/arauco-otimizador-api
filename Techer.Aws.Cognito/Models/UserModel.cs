@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-
-namespace Techer.Aws.Cognito.Models
+﻿namespace Techer.Aws.Cognito.Models
 {
     public class UserModel
     {

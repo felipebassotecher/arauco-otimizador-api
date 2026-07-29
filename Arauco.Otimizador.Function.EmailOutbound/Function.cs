@@ -1,12 +1,12 @@
 ﻿using Amazon.Lambda.Core;
 using Amazon.Lambda.SQSEvents;
-using System.Reflection;
-using Mustache;
-using Techer.Common.Json;
-using Amazon.SimpleEmail.Model;
 using Amazon.SimpleEmail;
+using Amazon.SimpleEmail.Model;
 using Arauco.Otimizador.Common.Domain.Events;
+using Mustache;
+using System.Reflection;
 using Techer.Common.Extensions;
+using Techer.Common.Json;
 
 // Assembly attribute to enable the Lambda function's JSON input to be converted into a .NET class.
 [assembly: LambdaSerializer(typeof(Amazon.Lambda.Serialization.SystemTextJson.DefaultLambdaJsonSerializer))]
@@ -19,7 +19,7 @@ public class Function
 
     public async Task FunctionHandler(SQSEvent evnt, ILambdaContext context)
     {
-        foreach(var message in evnt.Records)
+        foreach (var message in evnt.Records)
         {
             await ProcessMessageAsync(message, context);
         }

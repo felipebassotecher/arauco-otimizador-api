@@ -1,6 +1,4 @@
-﻿using System.Collections.Generic;
-
-namespace Techer.Aws.Dynamo
+﻿namespace Techer.Aws.Dynamo
 {
     public class DynamoDbDataSourceResult<T>
     {
