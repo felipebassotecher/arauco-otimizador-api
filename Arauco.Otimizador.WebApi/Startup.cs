@@ -9,6 +9,10 @@ using Arauco.Otimizador.Service.CenarioService;
 using Arauco.Otimizador.Service.DemandaService;
 using Arauco.Otimizador.Service.ParametroService;
 using Arauco.Otimizador.WebApi.Base.Builders;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Arauco.Otimizador.WebApi;
 
@@ -33,7 +37,7 @@ public class Startup
             s =>
             {
                 // BD
-                services.AddDbContext<DbContext>();
+                services.AddDbContext<DbContext>(options => options.UseMySqlLocal(Configuration));
                 services.AddScoped<IUnitOfWork, UnitOfWork>();
 
                 // Services

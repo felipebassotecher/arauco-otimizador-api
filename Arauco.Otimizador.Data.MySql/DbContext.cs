@@ -75,16 +75,4 @@ public class DbContext : Microsoft.EntityFrameworkCore.DbContext
             p.Property(x => x.TipoFreteEnum).HasColumnName("TipoFreteId");
         });
     }
-
-    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-    {
-        optionsBuilder.UseMySqlWithSecrets();
-    }
-
-    public static DbContext Create()
-    {
-        var builder = new DbContextOptionsBuilder<DbContext>();
-
-        return new DbContext(builder.Options);
-    }
 }

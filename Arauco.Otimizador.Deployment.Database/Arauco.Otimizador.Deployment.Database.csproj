@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -8,17 +8,22 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="Scripts\Script001 - Cartao.sql" />
-    <EmbeddedResource Include="Scripts\Script002 - Otimizador.sql" />
+    <None Update="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
   <ItemGroup>
-	<PackageReference Include="dbup-mysql" Version="6.1.0" />
+    <EmbeddedResource Include="Scripts\Script001 - Otimizador.sql" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="dbup-mysql" Version="6.1.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.10" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Arauco.Otimizador.Data.MySql\Arauco.Otimizador.Data.MySql.csproj" />
-    <ProjectReference Include="..\Techer.Aws.Secrets\Techer.Aws.Secrets.csproj" />
   </ItemGroup>
 
 </Project>

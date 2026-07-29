@@ -1,25 +1,22 @@
-﻿using Arauco.Otimizador.Data.MySql;
+using Arauco.Otimizador.Data.MySql;
 using DbUp;
-using Newtonsoft.Json;
+using Microsoft.Extensions.Configuration;
 using System.Reflection;
-using Techer.Aws.Secrets;
 
 namespace Arauco.Otimizador.Deployment.Database
 {
     internal class Program
     {
-        async static Task<int> Main(string[] args)
+        static int Main(string[] args)
         {
             Console.WriteLine("Database Update Process");
 
-            var secretsHelper = new SecretsHelper();
+            var config = new ConfigurationBuilder()
+                .SetBasePath(AppContext.BaseDirectory)
+                .AddJsonFile("appsettings.json", optional: false)
+                .Build();
 
-            var secret = secretsHelper.GetSecret(OptionsHelper.GetSecretName(MySqlSecretOption.Default));
-
-            var parameters = JsonConvert.DeserializeObject<Dictionary<string, string>>(secret);
-            var connString = $"Server={parameters["host"]};Database={parameters["dbname"]};Uid={parameters["username"]};Pwd='{parameters["password"]}';CharSet=utf8;Allow User Variables=True;";
-
-            //Console.WriteLine(connString);
+            var connString = OptionsHelper.GetConnectionString(config);
 
             try
             {

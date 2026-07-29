@@ -1,49 +1,28 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Newtonsoft.Json;
-using Techer.Aws.Secrets;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 
 namespace Arauco.Otimizador.Data.MySql
 {
-    public enum MySqlSecretOption
-    {
-        Default = 1
-    };
-
     public static class OptionsHelper
     {
-        public static DbContextOptionsBuilder UseMySqlWithSecrets(this DbContextOptionsBuilder options, MySqlSecretOption secretOption = MySqlSecretOption.Default)
+        public const string ConnectionStringName = "DefaultConnection";
+
+        public static string GetConnectionString(IConfiguration config)
         {
-            var secrets = new SecretsHelper();
+            var connString = config.GetConnectionString(ConnectionStringName);
 
-            var secretName = GetSecretName(secretOption);
-            var secret = secrets.GetSecret(secretName);
+            if (string.IsNullOrWhiteSpace(connString))
+                throw new InvalidOperationException(
+                    $"Connection string '{ConnectionStringName}' ausente. " +
+                    $"Configure 'ConnectionStrings:{ConnectionStringName}' no appsettings.json.");
 
-            var parametros = JsonConvert.DeserializeObject<Dictionary<string, string>>(secret);
+            return connString;
+        }
 
-            var connString = $"Server={parametros["host"]};Database={parametros["dbname"]};Uid={parametros["username"]};Pwd='{parametros["password"]}';CharSet=utf8;Connection Timeout=30";
-
+        public static DbContextOptionsBuilder UseMySqlLocal(this DbContextOptionsBuilder options, IConfiguration config)
+        {
+            var connString = GetConnectionString(config);
             return options.UseMySql(connString, ServerVersion.AutoDetect(connString));
-        }
-
-        public static string GetConnectionString()
-        {
-            var secrets = new SecretsHelper();
-
-            var secretName = GetSecretName(MySqlSecretOption.Default);
-            var secret = secrets.GetSecret(secretName);
-
-            var parametros = JsonConvert.DeserializeObject<Dictionary<string, string>>(secret);
-
-            return $"Server={parametros["host"]};Database={parametros["dbname"]};Uid={parametros["username"]};Pwd='{parametros["password"]}';CharSet=utf8;Connection Timeout=30";
-        }
-
-        public static string GetSecretName(MySqlSecretOption secretOption)
-        {
-            return secretOption switch
-            {
-                MySqlSecretOption.Default => "DefaultDb",
-                _ => throw new Exception("Invalid secret name!")
-            };
         }
     }
 }
