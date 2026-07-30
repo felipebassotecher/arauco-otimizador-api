@@ -47,7 +47,7 @@ cd ../Arauco.Otimizador.WebApi
 dotnet restore
 dotnet lambda deploy-serverless \
     --configuration Release \
-    --framework net10.0 \
+    --framework net9.0 \
     --region $AWS_REGION \
     --s3-bucket arauco-$ENVIRONMENT-deploys \
     --s3-prefix api/stack-otimizador-api \

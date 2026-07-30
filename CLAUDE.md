@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Arauco Otimizador API** is a serverless microservices application built with ASP.NET Core (.NET 10.0) running on AWS Lambda. This repository is used as a .NET base project containing reusable structures and existing implementations that can be adapted for new projects.
+**Arauco Otimizador API** is a serverless microservices application built with ASP.NET Core (.NET 9.0) running on AWS Lambda. This repository is used as a .NET base project containing reusable structures and existing implementations that can be adapted for new projects.
 
 The current code still carries domain-specific implementations (Auth, Cartão, Conta, Data API, Flow/WebHook, Functions, etc.) that are planned to be reviewed and removed in a later cleanup. The base infrastructure, common libraries, and AWS helpers are kept intact.
 
@@ -25,7 +25,7 @@ dotnet build arauco-otimizador-api.sln --configuration Release
 dotnet tool install -g Amazon.Lambda.Tools
 
 # Deploy individual API via SAM (requires AWS credentials)
-dotnet lambda deploy-serverless --configuration Release --framework net10.0 --region sa-east-1 --template serverless.yml
+dotnet lambda deploy-serverless --configuration Release --framework net9.0 --region sa-east-1 --template serverless.yml
 ```
 
 ## Architecture
@@ -236,7 +236,7 @@ provisiona buckets S3 — veja `## AWS Infrastructure` abaixo) sem precisar muda
 
 ## AWS Infrastructure
 
-- **Lambda:** All APIs and functions run as Lambda functions with runtime `dotnet10`
+- **Lambda:** All APIs and functions run as Lambda functions with runtime `dotnet9`
 - **API Gateway:** HTTP API routes to Lambda
 - **Cognito:** User authentication and management
 - **DynamoDB:** Key-value storage (`OtimizadorKeyValue`), logging (`OtimizadorLog`), workflows (`OtimizadorFlow`)

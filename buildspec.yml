@@ -3,7 +3,7 @@
 phases:
   install:
     runtime-versions:
-        dotnet: 10.0
+        dotnet: 9.0
     commands:
       - pip install aws-sam-cli --no-build-isolation
       - dotnet tool install -g Amazon.Lambda.Tools

@@ -73,7 +73,7 @@ Resources:
       Handler: Arauco.Otimizador.Function.EmailOutbound::Arauco.Otimizador.Function.EmailOutbound.Function::FunctionHandler
       MemorySize: 1024
       Timeout: 45
-      Runtime: dotnet10
+      Runtime: dotnet9
       Events:
         SQSQueueEvent:
           Type: SQS
