@@ -14,6 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="Scripts\Script002 - Inserir parametro inicial.sql" />
     <EmbeddedResource Include="Scripts\Script001 - Otimizador.sql" />
   </ItemGroup>
 
