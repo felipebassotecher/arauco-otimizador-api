@@ -15,7 +15,7 @@ The current code still carries domain-specific implementations (Auth, Cartão, C
 dotnet build arauco-otimizador-api.sln --configuration Debug
 
 # Run a WebApi locally (uses LocalEntryPoint.cs with Kestrel)
-cd Arauco.Otimizador.WebApi.AuthApi
+cd Arauco.Otimizador.WebApi
 dotnet run
 
 # Build for release/deployment
@@ -61,9 +61,18 @@ await unitOfWork.SaveAsync();
 **Environment Variables:** Access via `IEnvironmentVariables` interface with `IsLocal()`, `IsDevelopment()`, `IsProduction()` methods
 
 ### Database Contexts
-- `DbContext` (`Arauco.Otimizador.Data.MySql`) - single EF Core context for all product entities (Cartao, Cenario, Parametro, Demanda, Pedido, etc.)
+- `DbContext` (`Arauco.Otimizador.Data.MySql`) - single EF Core context for all product entities (Cartao, Cenario, CenarioCriterio, CenarioArquivo, Demanda, Pedido, etc.)
 
-Database credentials come from AWS Secrets Manager via `UseMySqlWithSecrets()` extension.
+Database credentials come from the local connection string `ConnectionStrings:DefaultConnection` in `appsettings.json` (via `OptionsHelper.UseMySqlLocal`), **not** from AWS Secrets Manager.
+
+### Database migrations — NUNCA executar automaticamente
+
+O projeto `Arauco.Otimizador.Deployment.Database` (runner DbUp que aplica os scripts em
+`Scripts/ScriptNNN - *.sql`) **nunca deve ser executado automaticamente** — nem pelo agente/CI em
+nome do usuário, nem como passo de build/deploy. As migrações de banco são aplicadas **manualmente**
+pelo desenvolvedor, no momento e no ambiente em que ele decidir. Não inclua
+`dotnet run --project Arauco.Otimizador.Deployment.Database` em scripts de build/deploy nem o
+dispare sem uma instrução explícita do usuário.
 
 ## Guia para Novos Recursos (onde implementar cada coisa)
 
@@ -271,6 +280,14 @@ export APIDOMAIN=api.otimizador.arauco.app.br
 **CartaoTipoEnum:** 1=Segurança, 2=Excelência/Inovação, 3=Trabalho em Equipe, 4=Bom Cidadão, 5=Compromisso
 
 **AplicacaoEnum:** 1=Hub
+
+**StatusCenarioEnum:** 1=pendente, 2=processando, 3=processado, 4=submetido (serializado em string via `[EnumMember]`)
+
+**CriterioChaveEnum:** TipoFrete=1 — chave fechada dos critérios disponíveis, transmitida como **int** (não string). Lista fixa (nome legível + tipo) servida por `GET /cenarios/criterios-disponiveis`.
+
+**OperadorCriterioEnum:** 1=igual_a, 2=diferente_de, 3=maior_que, 4=menor_que, 5=comeca_com, 6=termina_com
+
+**TipoCriterioEnum:** 1=string, 2=numerico
 
 ## Database
 

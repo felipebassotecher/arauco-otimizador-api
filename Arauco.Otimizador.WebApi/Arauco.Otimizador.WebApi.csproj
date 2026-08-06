@@ -14,8 +14,9 @@
     <ProjectReference Include="..\Arauco.Otimizador.Data.MySql\Arauco.Otimizador.Data.MySql.csproj" />
     <ProjectReference Include="..\Arauco.Otimizador.Service.CartaoService\Arauco.Otimizador.Service.CartaoService.csproj" />
     <ProjectReference Include="..\Arauco.Otimizador.Service.CenarioService\Arauco.Otimizador.Service.CenarioService.csproj" />
+    <ProjectReference Include="..\Arauco.Otimizador.Service.ContaService\Arauco.Otimizador.Service.ContaService.csproj" />
     <ProjectReference Include="..\Arauco.Otimizador.Service.DemandaService\Arauco.Otimizador.Service.DemandaService.csproj" />
-    <ProjectReference Include="..\Arauco.Otimizador.Service.ParametroService\Arauco.Otimizador.Service.ParametroService.csproj" />
+    <ProjectReference Include="..\Arauco.Otimizador.Service.OtimizadorService\Arauco.Otimizador.Service.OtimizadorService.csproj" />
     <ProjectReference Include="..\Arauco.Otimizador.WebApi.Base\Arauco.Otimizador.WebApi.Base.csproj" />
   </ItemGroup>
 

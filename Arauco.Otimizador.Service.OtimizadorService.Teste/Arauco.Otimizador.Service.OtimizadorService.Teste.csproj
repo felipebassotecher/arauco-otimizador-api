@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Arauco.Otimizador.Common.Domain\Arauco.Otimizador.Common.Domain.csproj" />
+    <ProjectReference Include="..\Arauco.Otimizador.Data.Entities\Arauco.Otimizador.Data.Entities.csproj" />
+    <ProjectReference Include="..\Arauco.Otimizador.Service.OtimizadorService\Arauco.Otimizador.Service.OtimizadorService.csproj" />
+  </ItemGroup>
+
+</Project>

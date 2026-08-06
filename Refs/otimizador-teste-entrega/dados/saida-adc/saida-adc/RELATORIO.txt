@@ -1,0 +1,330 @@
+==============================================================================
+SONDAGEM DO BANCO ADC — otimizador-teste (Techer)
+gerado em 2026-07-31T19:00:03.471669+00:00   database=ADC
+==============================================================================
+
+Como ler: cada bloco responde uma pergunta que muda a estrutura do
+otimizador. Os comentarios de cada .sql em sql/sondagem explicam o porque.
+
+------------------------------------------------------------------------------
+P0 · Schema real das tabelas (o DDL do repo e as entidades C# divergem)
+------------------------------------------------------------------------------
+                  Tabela  Pos                   Coluna          Tipo      Tamanho  Precisao  Escala Aceita_Nulo
+                Carteira    1               CarteiraId           int          NaN      10.0     0.0          NO
+                Carteira    2                      Mes           int          NaN      10.0     0.0          NO
+                Carteira    3                      Ano           int          NaN      10.0     0.0          NO
+                Carteira    4                 CentroId           int          NaN      10.0     0.0          NO
+                Carteira    5                 Vendedor       varchar        200.0       NaN     NaN         YES
+                Carteira    6                ClienteId       varchar         20.0       NaN     NaN          NO
+                Carteira    7                   Cidade       varchar        200.0       NaN     NaN         YES
+                Carteira    8                   Regiao       varchar        200.0       NaN     NaN         YES
+                Carteira    9            StatusCredito          char          1.0       NaN     NaN         YES
+                Carteira   10    DataLiberacaoOriginal          date          NaN       NaN     NaN         YES
+                Carteira   11       TipoDocumentoVenda       varchar         20.0       NaN     NaN         YES
+                Carteira   12             NumeroPedido           int          NaN      10.0     0.0         YES
+                Carteira   13  NumeroPedido_Referencia       varchar         10.0       NaN     NaN         YES
+                Carteira   14                Incoterms       varchar         20.0       NaN     NaN          NO
+                Carteira   15            DataDocumento          date          NaN       NaN     NaN          NO
+                Carteira   16    DataReferenciaCliente          date          NaN       NaN     NaN         YES
+                Carteira   17   DataSolicitacaoRemessa          date          NaN       NaN     NaN         YES
+                Carteira   18               NotaFiscal       varchar         10.0       NaN     NaN         YES
+                Carteira   19          DataFaturamento          date          NaN       NaN     NaN         YES
+                Carteira   20      CondicoesPagamentos       varchar          4.0       NaN     NaN         YES
+                Carteira   21           LinhaProdutoId           int          NaN      10.0     0.0         YES
+                Carteira   22                ProdutoId       varchar         18.0       NaN     NaN          NO
+                Carteira   23                 Deposito           int          NaN      10.0     0.0          NO
+                Carteira   24                Espessura       decimal          NaN       9.0     2.0         YES
+                Carteira   25       TextoBreveMaterial       varchar        500.0       NaN     NaN         YES
+                Carteira   26           TextoComercial       varchar        500.0       NaN     NaN         YES
+                Carteira   27            StatusRemessa           bit          NaN       NaN     NaN         YES
+                Carteira   28         StatusTransporte           bit          NaN       NaN     NaN         YES
+                Carteira   29        QtdConfirmadaDesc           bit          NaN       NaN     NaN         YES
+                Carteira   30                  Entrega           int          NaN      10.0     0.0         YES
+                     ...  ...                      ...           ...          ...       ...     ...         ...
+            LinhaProduto    3                     Nome       varchar         50.0       NaN     NaN          NO
+            LinhaProduto    4                    Ativa           bit          NaN       NaN     NaN          NO
+            LinhaProduto    5                Substrato           bit          NaN       NaN     NaN          NO
+            LinhaProduto    6 LinhaProdutoId_Substrato           int          NaN      10.0     0.0         YES
+            LinhaProduto    7          DataHoraRemocao smalldatetime          NaN       NaN     NaN         YES
+            LinhaProduto    8                    Grupo       varchar         50.0       NaN     NaN         YES
+            Planejamento    1           PlanejamentoId          char         36.0       NaN     NaN          NO
+            Planejamento    2       TipoPlanejamentoId           int          NaN      10.0     0.0          NO
+            Planejamento    3          DataHoraCriacao smalldatetime          NaN       NaN     NaN          NO
+            Planejamento    4   SituacaoPlanejamentoId           int          NaN      10.0     0.0          NO
+            Planejamento    5         DataHoraSituacao smalldatetime          NaN       NaN     NaN          NO
+            Planejamento    6       UsuarioId_Situacao          char          6.0       NaN     NaN         YES
+            Planejamento    7             ConteudoJson          text 2147483647.0       NaN     NaN          NO
+            Planejamento    8  ParametroPlanejamentoId          char          6.0       NaN     NaN         YES
+                 Produto    1                ProdutoId       varchar         18.0       NaN     NaN          NO
+                 Produto    2            TipoProdutoId           int          NaN      10.0     0.0          NO
+                 Produto    3           LinhaProdutoId           int          NaN      10.0     0.0          NO
+                 Produto    4                Descricao       varchar        300.0       NaN     NaN          NO
+                 Produto    5                  Largura       decimal          NaN       9.0     2.0         YES
+                 Produto    6              Comprimento       decimal          NaN       9.0     2.0         YES
+                 Produto    7                Espessura       decimal          NaN       9.0     2.0         YES
+                 Produto    8               LoteMinimo           int          NaN      10.0     0.0         YES
+                 Produto    9   GrupoPapelId_Principal           int          NaN      10.0     0.0         YES
+                 Produto   10  GrupoPapelId_Secundario           int          NaN      10.0     0.0         YES
+                 Produto   11                   Padrao       varchar         50.0       NaN     NaN         YES
+                 Produto   12                    Ativo           bit          NaN       NaN     NaN          NO
+                 Produto   13         DataHoraExclusao smalldatetime          NaN       NaN     NaN         YES
+                 Produto   14         GrupoSubstratoId           int          NaN      10.0     0.0         YES
+   Produto_LinhaProducao    1                ProdutoId       varchar         18.0       NaN     NaN          NO
+   Produto_LinhaProducao    2          LinhaProducaoId           int          NaN      10.0     0.0          NO
+
+------------------------------------------------------------------------------
+P1 · Tamanho da instancia (decide o nivel de agregacao do item)
+------------------------------------------------------------------------------
+                         Filtro  Linhas  Itens_Cliente_Produto  Itens_Cliente_LinhaProduto  Produtos  Clientes  Centros  Volume_Total_M3 Pedido_Mais_Antigo Pedido_Mais_Recente
+                   A: Saldo > 0   14861                   9903                        1166       925       486        4        158920.06         2023-06-12          2025-11-16
+          B: Saldo > 0 e sem NF   13281                   9102                        1090       894       461        4        135234.10         2023-06-12          2025-11-16
+   C: CarteiraM3 - Faturado > 0   14861                   9903                        1166       925       486        4        158920.14         2023-06-12          2025-11-16
+
+------------------------------------------------------------------------------
+P1b · Periodo do snapshot da carteira (confirma que nao empilha meses)
+------------------------------------------------------------------------------
+    Ano  Mes  Linhas  Ids_Distintos  Saldo_M3 Documento_Mais_Antigo Documento_Mais_Recente
+   2026    1      58             58   1727.63            2025-05-19             2025-11-14
+   2025   12    2703           2703  46518.79            2023-06-12             2025-11-16
+   2025   11   12100          12100 110673.64            2025-03-20             2025-11-14
+
+------------------------------------------------------------------------------
+P2 · Planejamentos taticos e periodo coberto
+------------------------------------------------------------------------------
+                         PlanejamentoId     DataHoraCriacao  Situacao Mes  Ano  Bytes_Json  Json_Valido  Tem_Alocacao_Raiz  Tem_Alocacao_Simulacao
+   07168df5-5040-4975-90d1-e1a7b62ad82f 2025-11-18 21:58:00         2  12 2025       12038            1                  1                       0
+   fd4c5568-1336-4dea-a092-8cae71c2ec6c 2025-11-18 21:40:00         2  11 2025       13488            1                  1                       0
+   81a8fe98-db25-407c-b1a5-95c9c544ab7b 2025-10-16 18:39:00         2  10 2025       12342            1                  1                       0
+   b174a8fc-8c46-42a6-ab35-16efcad228a0 2025-08-21 14:54:00         2   9 2025       12076            1                  1                       0
+   ec424136-afbb-455a-aaa2-5fdc1a6549c8 2025-07-28 14:11:00         2   8 2025       13495            1                  1                       0
+   3219e533-2842-4828-ac6e-eb6ffc8da5f6 2025-07-18 10:44:00         2   7 2025       12074            1                  1                       0
+   95082e6a-c0de-4fc9-9e32-933ccf2207de 2025-06-16 08:46:00         2   6 2025        4995            1                  1                       0
+   00d68e56-5953-486b-a94b-51bb8e570c5e 2025-05-19 12:48:00         2   5 2025        6879            1                  1                       0
+   845fcd93-09cb-44f7-a11b-8bc70391f444 2025-01-02 18:49:00         2   1 2025        6466            1                  1                       0
+   f65122aa-da41-4790-9f87-13a76dfe0449 2024-12-06 12:38:00         2  12 2024        7197            1                  1                       0
+   4f4ffe87-be7b-41a3-b0b0-e38175898c74 2024-05-15 23:36:00         2   3 2025        6568            1                  1                       0
+   d8ed86fa-23ad-4d56-95e6-45137b194ef8 2024-04-25 17:15:00         2   5 2024       13202            1                  1                       0
+
+------------------------------------------------------------------------------
+P3 · Capacidade no leaf (Centro x LinhaProduto x Semana) — D-27
+------------------------------------------------------------------------------
+                         PlanejamentoId Mes  Ano  Situacao  TipoAlocacao  CentroId  Semana  Qtd_LinhasProduto  Quantidade
+   07168df5-5040-4975-90d1-e1a7b62ad82f  12 2025         2             1         1       1                  3       13164
+   07168df5-5040-4975-90d1-e1a7b62ad82f  12 2025         2             1         1      49                  3       16471
+   07168df5-5040-4975-90d1-e1a7b62ad82f  12 2025         2             1         1      50                  3       16455
+   07168df5-5040-4975-90d1-e1a7b62ad82f  12 2025         2             1         1      51                  3       16455
+   07168df5-5040-4975-90d1-e1a7b62ad82f  12 2025         2             1         1      52                  3       16455
+   07168df5-5040-4975-90d1-e1a7b62ad82f  12 2025         2             1         2       1                  1        1668
+   07168df5-5040-4975-90d1-e1a7b62ad82f  12 2025         2             1         2      49                  1        2080
+   07168df5-5040-4975-90d1-e1a7b62ad82f  12 2025         2             1         2      50                  1        2084
+   07168df5-5040-4975-90d1-e1a7b62ad82f  12 2025         2             1         2      51                  1        2084
+   07168df5-5040-4975-90d1-e1a7b62ad82f  12 2025         2             1         2      52                  1        2084
+   07168df5-5040-4975-90d1-e1a7b62ad82f  12 2025         2             1         3       1                  6        7913
+   07168df5-5040-4975-90d1-e1a7b62ad82f  12 2025         2             1         3      49                  6        9911
+   07168df5-5040-4975-90d1-e1a7b62ad82f  12 2025         2             1         3      50                  6        9892
+   07168df5-5040-4975-90d1-e1a7b62ad82f  12 2025         2             1         3      51                  6        9892
+   07168df5-5040-4975-90d1-e1a7b62ad82f  12 2025         2             1         3      52                  6        9892
+   07168df5-5040-4975-90d1-e1a7b62ad82f  12 2025         2             1         4       1                  2        5917
+   07168df5-5040-4975-90d1-e1a7b62ad82f  12 2025         2             1         4      49                  2        7395
+   07168df5-5040-4975-90d1-e1a7b62ad82f  12 2025         2             1         4      50                  2        7396
+   07168df5-5040-4975-90d1-e1a7b62ad82f  12 2025         2             1         4      51                  2        7396
+   07168df5-5040-4975-90d1-e1a7b62ad82f  12 2025         2             1         4      52                  2        7396
+   07168df5-5040-4975-90d1-e1a7b62ad82f  12 2025         2             2         1       1                  2         166
+   07168df5-5040-4975-90d1-e1a7b62ad82f  12 2025         2             2         1      49                  2         210
+   07168df5-5040-4975-90d1-e1a7b62ad82f  12 2025         2             2         1      50                  2         208
+   07168df5-5040-4975-90d1-e1a7b62ad82f  12 2025         2             2         1      51                  2         208
+   07168df5-5040-4975-90d1-e1a7b62ad82f  12 2025         2             2         1      52                  2         208
+   07168df5-5040-4975-90d1-e1a7b62ad82f  12 2025         2             2         2       1                  5        1879
+   07168df5-5040-4975-90d1-e1a7b62ad82f  12 2025         2             2         2      49                  5        2374
+   07168df5-5040-4975-90d1-e1a7b62ad82f  12 2025         2             2         2      50                  5        2349
+   07168df5-5040-4975-90d1-e1a7b62ad82f  12 2025         2             2         2      51                  5        2349
+   07168df5-5040-4975-90d1-e1a7b62ad82f  12 2025         2             2         2      52                  5        2349
+                                    ...  ..  ...       ...           ...       ...     ...                ...         ...
+   fd4c5568-1336-4dea-a092-8cae71c2ec6c  11 2025         2             1         3      44                  6        2187
+   fd4c5568-1336-4dea-a092-8cae71c2ec6c  11 2025         2             1         3      45                  6       10789
+   fd4c5568-1336-4dea-a092-8cae71c2ec6c  11 2025         2             1         3      46                  6       10789
+   fd4c5568-1336-4dea-a092-8cae71c2ec6c  11 2025         2             1         3      47                  6       10789
+   fd4c5568-1336-4dea-a092-8cae71c2ec6c  11 2025         2             1         3      48                  6       10789
+   fd4c5568-1336-4dea-a092-8cae71c2ec6c  11 2025         2             1         3      49                  6        2157
+   fd4c5568-1336-4dea-a092-8cae71c2ec6c  11 2025         2             1         4      44                  2        1628
+   fd4c5568-1336-4dea-a092-8cae71c2ec6c  11 2025         2             1         4      45                  2        8065
+   fd4c5568-1336-4dea-a092-8cae71c2ec6c  11 2025         2             1         4      46                  2        8065
+   fd4c5568-1336-4dea-a092-8cae71c2ec6c  11 2025         2             1         4      47                  2        8065
+   fd4c5568-1336-4dea-a092-8cae71c2ec6c  11 2025         2             1         4      48                  2        8065
+   fd4c5568-1336-4dea-a092-8cae71c2ec6c  11 2025         2             1         4      49                  2        1612
+   fd4c5568-1336-4dea-a092-8cae71c2ec6c  11 2025         2             2         1      44                  2          52
+   fd4c5568-1336-4dea-a092-8cae71c2ec6c  11 2025         2             2         1      45                  2         226
+   fd4c5568-1336-4dea-a092-8cae71c2ec6c  11 2025         2             2         1      46                  2         226
+   fd4c5568-1336-4dea-a092-8cae71c2ec6c  11 2025         2             2         1      47                  2         226
+   fd4c5568-1336-4dea-a092-8cae71c2ec6c  11 2025         2             2         1      48                  2         226
+   fd4c5568-1336-4dea-a092-8cae71c2ec6c  11 2025         2             2         1      49                  2          44
+   fd4c5568-1336-4dea-a092-8cae71c2ec6c  11 2025         2             2         2      44                  5         546
+   fd4c5568-1336-4dea-a092-8cae71c2ec6c  11 2025         2             2         2      45                  5        2561
+   fd4c5568-1336-4dea-a092-8cae71c2ec6c  11 2025         2             2         2      46                  5        2561
+   fd4c5568-1336-4dea-a092-8cae71c2ec6c  11 2025         2             2         2      47                  5        2561
+   fd4c5568-1336-4dea-a092-8cae71c2ec6c  11 2025         2             2         2      48                  5        2561
+   fd4c5568-1336-4dea-a092-8cae71c2ec6c  11 2025         2             2         2      49                  5         510
+   fd4c5568-1336-4dea-a092-8cae71c2ec6c  11 2025         2             2         4      44                  1          61
+   fd4c5568-1336-4dea-a092-8cae71c2ec6c  11 2025         2             2         4      45                  1         295
+   fd4c5568-1336-4dea-a092-8cae71c2ec6c  11 2025         2             2         4      46                  1         295
+   fd4c5568-1336-4dea-a092-8cae71c2ec6c  11 2025         2             2         4      47                  1         295
+   fd4c5568-1336-4dea-a092-8cae71c2ec6c  11 2025         2             2         4      48                  1         295
+   fd4c5568-1336-4dea-a092-8cae71c2ec6c  11 2025         2             2         4      49                  1          59
+
+------------------------------------------------------------------------------
+P4 · Elegibilidade x capacidade (eixos diferentes)
+------------------------------------------------------------------------------
+    Pares_Produto_Centro_Elegiveis  Pares_SEM_Capacidade  Produtos_Afetados  Produtos_Afetados_COM_Demanda
+                              8397                  4963               2916                            692
+
+------------------------------------------------------------------------------
+P4b · Produtos com demanda e sem destino possivel
+------------------------------------------------------------------------------
+   ProdutoId  LinhaProdutoId  LoteMinimo  Saldo_Aberto_M3  Linhas                                     Motivo
+     2000201               1         0.0          3122.32      62               sem elegibilidade cadastrada
+     1770811               1         NaN          1654.14      44               sem elegibilidade cadastrada
+     1782263               5         NaN          1409.40     238               sem elegibilidade cadastrada
+     1765938               4         NaN          1376.74      11               sem elegibilidade cadastrada
+     1626924              14         0.0          1274.11      18 elegivel, mas sem capacidade na linha d...
+     1816841               9         NaN          1005.15      35               sem elegibilidade cadastrada
+     1741168               9       100.0           728.38      25               sem elegibilidade cadastrada
+     1659052              14         0.0           680.10      28 elegivel, mas sem capacidade na linha d...
+     1782264               5         NaN           556.55     109               sem elegibilidade cadastrada
+     1210806              12         0.0           493.61      41 elegivel, mas sem capacidade na linha d...
+     1741172               9       100.0           465.88      11               sem elegibilidade cadastrada
+     1309362              14         0.0           435.07      13 elegivel, mas sem capacidade na linha d...
+     1798969               9         NaN           421.84       4               sem elegibilidade cadastrada
+     1782244               5         NaN           393.48      96               sem elegibilidade cadastrada
+     1813381               9         NaN           346.86       9               sem elegibilidade cadastrada
+     1769558               4         NaN           289.84       3               sem elegibilidade cadastrada
+     1798950               9         NaN           252.98       7               sem elegibilidade cadastrada
+     1782269               5         NaN           250.10      70               sem elegibilidade cadastrada
+     1783769               3         NaN           244.00      64               sem elegibilidade cadastrada
+     1764664               5         NaN           216.55      62               sem elegibilidade cadastrada
+     1773852              17         NaN           205.12       4               sem elegibilidade cadastrada
+     1782512               9         NaN           195.56       3               sem elegibilidade cadastrada
+     1765503              14         0.0           191.36      10 elegivel, mas sem capacidade na linha d...
+     1774737               9         NaN           188.08       4               sem elegibilidade cadastrada
+     1628659              17         NaN           184.40       4               sem elegibilidade cadastrada
+     1782515               9         NaN           173.56       5               sem elegibilidade cadastrada
+     1782516               9         NaN           161.99       4               sem elegibilidade cadastrada
+     1808088               9         NaN           152.34       3               sem elegibilidade cadastrada
+     1782434               9         NaN           151.73       1               sem elegibilidade cadastrada
+     1765210              13         0.0           149.81       5 elegivel, mas sem capacidade na linha d...
+         ...             ...         ...              ...     ...                                        ...
+     1783491               3         NaN            42.71       5               sem elegibilidade cadastrada
+     1638450              13         0.0            42.31       2 elegivel, mas sem capacidade na linha d...
+     1777825               1         NaN            41.75       1               sem elegibilidade cadastrada
+     1746747               9         0.0            39.55       3               sem elegibilidade cadastrada
+     1782024               5         NaN            39.50      10               sem elegibilidade cadastrada
+     1210808              14         0.0            37.61       2 elegivel, mas sem capacidade na linha d...
+     1765189              13         0.0            36.93       1 elegivel, mas sem capacidade na linha d...
+     1771092              13         NaN            36.83       2               sem elegibilidade cadastrada
+     1746764               9         0.0            36.62       2               sem elegibilidade cadastrada
+     1741166               9       100.0            36.61       6               sem elegibilidade cadastrada
+     1497029              13         0.0            32.90       2 elegivel, mas sem capacidade na linha d...
+     1773555               7         NaN            31.29       3               sem elegibilidade cadastrada
+     1770385               4         NaN            30.51       2               sem elegibilidade cadastrada
+     1775362               8         NaN            30.21       3               sem elegibilidade cadastrada
+     1783218               3         NaN            29.61       9               sem elegibilidade cadastrada
+     1782243               5         NaN            29.14      30               sem elegibilidade cadastrada
+     1662371              13         0.0            28.20       5 elegivel, mas sem capacidade na linha d...
+     1623308              13         0.0            28.20       2 elegivel, mas sem capacidade na linha d...
+     1669757              14         0.0            28.03       2 elegivel, mas sem capacidade na linha d...
+     1776373               8         NaN            27.46       2               sem elegibilidade cadastrada
+     1782299               3         NaN            27.45       8               sem elegibilidade cadastrada
+     1782268               5         NaN            27.32      27               sem elegibilidade cadastrada
+     1783796               7         NaN            26.86       1               sem elegibilidade cadastrada
+     1780189               3         NaN            26.32       8               sem elegibilidade cadastrada
+     1783093               5         NaN            26.32       8               sem elegibilidade cadastrada
+     1279842              14         0.0            26.08       1 elegivel, mas sem capacidade na linha d...
+     1783799               3         NaN            25.51      25               sem elegibilidade cadastrada
+     1725004              13         0.0            23.50       2 elegivel, mas sem capacidade na linha d...
+     1775364               8         NaN            23.49       2               sem elegibilidade cadastrada
+     1782265               5         NaN            21.32       9               sem elegibilidade cadastrada
+
+------------------------------------------------------------------------------
+P5a · Preenchimento dos campos usados pelo modelo
+------------------------------------------------------------------------------
+    Linhas_Aberto  Sem_LinhaProduto  Sem_Incoterms  Sem_Segmento  Sem_Cliente  Sem_Produto  Sem_DataDocumento  Saldo_Maior_Que_Carteira  Sem_DataSolicitacaoRemessa
+            14861                 0              0             6            0            0                  0                         0                           0
+
+------------------------------------------------------------------------------
+P5b · Valores categoricos (Incoterms, Segmento, credito)
+------------------------------------------------------------------------------
+                Campo                        Valor  Linhas  Volume_M3
+            Incoterms                          CIF    7020   84357.46
+            Incoterms                          FOB    7018   61732.14
+            Incoterms                          CIP     665    6190.99
+            Incoterms                          DAP      63    5296.80
+            Incoterms                          FCA      95    1342.67
+           Incoterms2                       (nulo)    9657   95369.33
+           Incoterms2                não antecipar     436    7506.41
+           Incoterms2               .não antecipar     339    4615.63
+           Incoterms2                     PECALLAO      56    2593.50
+           Incoterms2           MXCIUDAD DE MEXICO      27    2377.69
+           Incoterms2                   Prioridade      77    2150.54
+           Incoterms2                  MXMONTERREY      24    1983.23
+           Incoterms2             acordo diretoria      79    1792.41
+           Incoterms2                  Aut. Flavio      42    1744.44
+           Incoterms2     nao antecipar - DEZEMBRO     227    1550.77
+           Incoterms2         programação Novembro      45    1129.03
+           Incoterms2       PODE ANTECIPAR URGENTE      95    1083.57
+           Incoterms2                         PIEN      35    1005.15
+           Incoterms2         Programação Dezembro      49     937.36
+           Incoterms2               COBUENAVENTURA      15     904.39
+           Incoterms2           PEDIDO P/ DEZEMBRO     239     893.17
+           Incoterms2                        USMTN      31     892.52
+           Incoterms2                     ANTECIPA     113     850.93
+           Incoterms2                   CLSANTIAGO      35     835.92
+           Incoterms2     nao antecipar - NOVEMBRO      97     763.05
+           Incoterms2      deposito fechado 122740     102     745.09
+           Incoterms2               PODE ANTECIPAR     187     744.10
+           Incoterms2                MXGUADALAJARA      10     711.64
+           Incoterms2   Subst. Ped. PB02 antecipar      15     691.70
+           Incoterms2                    .dezembro      80     646.32
+                  ...                          ...     ...        ...
+           Incoterms2              PARCIAL 6644888       1       6.10
+           Incoterms2 .Complemento de carga 662890       2       4.60
+           Incoterms2        quebra pedido 6603515       1       3.47
+           Incoterms2        NÃO ACEITA REALOCAÇÃO       1       3.35
+           Incoterms2               .compl 6623268       1       3.29
+           Incoterms2             CORREÇÃO 6622239       1       3.05
+           Incoterms2           comp. de pedido pg       1       3.05
+           Incoterms2 Subst. 6569675 - CARREGAR CO       1       3.05
+           Incoterms2     .compl 6643556 e 6632266       1       2.30
+           Incoterms2     Subst. do pedido 6607297       1       0.91
+             Segmento                 ESPECIALISTA   12361   91852.70
+             Segmento                      SERIADO     799   27936.57
+             Segmento                   EXPORTAÇÃO     403   14506.60
+             Segmento                    MAYORISTA     234   10189.90
+             Segmento                     MODULADO     899    8227.06
+             Segmento                 VENDA DIRETA     121    5272.64
+             Segmento                     C. CIVIL      19     757.39
+             Segmento                    HOTELARIA      18      80.23
+             Segmento                       (nulo)       6      63.45
+             Segmento                   ENCHAPADOR       1      33.52
+        StatusCredito                            B    6575   66804.83
+        StatusCredito                            A    6861   64381.07
+        StatusCredito                       (nulo)     642   15973.82
+        StatusCredito                            D     783   11760.34
+   TipoDocumentoVenda                         ZVPQ   13339  124486.53
+   TipoDocumentoVenda                         ZEXP     403   14506.60
+   TipoDocumentoVenda                         ZVPV     938   13318.14
+   TipoDocumentoVenda                         ZOUT     121    5272.64
+   TipoDocumentoVenda                         ZVOR      37    1140.13
+   TipoDocumentoVenda                         ZVOV      23     196.02
+
+------------------------------------------------------------------------------
+P5c · Ordens de grandeza e unidades
+------------------------------------------------------------------------------
+    Demanda_Aberta_M3  Media_Linha_M3  Maior_Linha_M3  Lote_Minimo_Min  Lote_Minimo_Max  Produtos_Sem_LoteMinimo  Produtos_Ativos  Centros_Ativos  Linhas_Producao_Ativas
+            158920.06           10.69           193.2                1             5600                     5007             5445               4                      15
+
+------------------------------------------------------------------------------
+SANITY · volumes de demanda x capacidade
+------------------------------------------------------------------------------
+   linhas de demanda:    14861
+   linhas de capacidade: 446
+   (a comparacao de VOLUME e feita do lado do engine, ja com o
+    horizonte recortado — aqui e so contagem de linhas)

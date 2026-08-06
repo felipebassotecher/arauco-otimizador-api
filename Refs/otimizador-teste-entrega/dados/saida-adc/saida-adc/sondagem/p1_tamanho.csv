@@ -1,0 +1,4 @@
+﻿Filtro,Linhas,Itens_Cliente_Produto,Itens_Cliente_LinhaProduto,Produtos,Clientes,Centros,Volume_Total_M3,Pedido_Mais_Antigo,Pedido_Mais_Recente
+A: Saldo > 0,14861,9903,1166,925,486,4,158920.06,2023-06-12,2025-11-16
+B: Saldo > 0 e sem NF,13281,9102,1090,894,461,4,135234.1,2023-06-12,2025-11-16
+C: CarteiraM3 - Faturado > 0,14861,9903,1166,925,486,4,158920.14,2023-06-12,2025-11-16

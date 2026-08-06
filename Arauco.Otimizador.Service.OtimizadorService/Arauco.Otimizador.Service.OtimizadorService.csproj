@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Google.OrTools" Version="9.15.6755" />
+    <PackageReference Include="Parquet.Net" Version="6.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Arauco.Otimizador.Common.Domain\Arauco.Otimizador.Common.Domain.csproj" />
+    <ProjectReference Include="..\Arauco.Otimizador.Data.Entities\Arauco.Otimizador.Data.Entities.csproj" />
+    <ProjectReference Include="..\Arauco.Otimizador.Service.Base\Arauco.Otimizador.Service.Base.csproj" />
+    <ProjectReference Include="..\Techer.Common.Id\Techer.Common.Id.csproj" />
+  </ItemGroup>
+
+</Project>

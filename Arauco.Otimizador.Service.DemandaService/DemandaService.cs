@@ -17,17 +17,17 @@ public class DemandaService : ServiceBase, IDemandaService
     {
     }
 
-    public async Task<List<DemandaListaResponse>> ListarAsync(string cenarioId)
+    public async Task<List<DemandaResponse>> ListarAsync(string cenarioId)
     {
         var demandas = await unitOfWork
             .DemandaRepository
             .Where(d => d.CenarioId == cenarioId)
             .ToListAsync();
 
-        return demandas.Select(_MapLista).ToList();
+        return demandas.Select(_Map).ToList();
     }
 
-    public async Task<List<DemandaUploadResponse>> UploadAsync(DemandaUploadRequest model)
+    public async Task<List<DemandaResponse>> UploadAsync(DemandaUploadRequest model)
     {
         if (!await unitOfWork.CenarioRepository.AnyAsync(c => c.CenarioId == model.CenarioId))
             throw new NotFoundException("Cenário não encontrado");
@@ -37,6 +37,7 @@ public class DemandaService : ServiceBase, IDemandaService
         if (linhas.Count == 0)
             throw new ApiException("Arquivo CSV inválido ou vazio");
 
+        // Substitui as demandas existentes do cenário pelas novas (spec §2.3).
         var existentes = await unitOfWork.DemandaRepository.Where(d => d.CenarioId == model.CenarioId).ToListAsync();
         unitOfWork.DemandaRepository.RemoveRange(existentes);
 
@@ -60,34 +61,19 @@ public class DemandaService : ServiceBase, IDemandaService
 
         await unitOfWork.SaveAsync();
 
-        return demandas.Select(_MapUpload).ToList();
+        return demandas.Select(_Map).ToList();
     }
 
-    private static DemandaListaResponse _MapLista(Demanda demanda)
+    private static DemandaResponse _Map(Demanda demanda)
     {
-        return new DemandaListaResponse
+        return new DemandaResponse
         {
             Id = demanda.DemandaId,
-            CenarioId = demanda.CenarioId,
             Cliente = demanda.Cliente,
             Material = demanda.Material,
             Volume = demanda.Volume,
             DataEntregaDesejada = demanda.DataEntregaDesejada,
-            TipoFrete = demanda.TipoFreteEnum
-        };
-    }
-
-    private static DemandaUploadResponse _MapUpload(Demanda demanda)
-    {
-        return new DemandaUploadResponse
-        {
-            Id = demanda.DemandaId,
-            CenarioId = demanda.CenarioId,
-            Cliente = demanda.Cliente,
-            Material = demanda.Material,
-            Volume = demanda.Volume,
-            DataEntregaDesejada = demanda.DataEntregaDesejada,
-            TipoFrete = demanda.TipoFreteEnum
+            TipoFrete = demanda.TipoFreteEnum.ToString()
         };
     }
 }

@@ -1,6 +1,9 @@
 using Arauco.Otimizador.Common.Domain.Models.Cenario;
+using Arauco.Otimizador.Common.Domain.Models.Criterio;
+using Arauco.Otimizador.Common.Domain.Models.Otimizador;
 using Arauco.Otimizador.Common.Domain.Models.Pedido;
 using Arauco.Otimizador.Common.Domain.Services.Cenario;
+using Arauco.Otimizador.Common.Domain.Services.Otimizador;
 using Arauco.Otimizador.WebApi.Base.Controller;
 using Microsoft.AspNetCore.Mvc;
 using Techer.Common.Domain.Exceptions;
@@ -12,10 +15,21 @@ namespace Arauco.Otimizador.WebApi.Controllers;
 public class CenariosController : BaseController
 {
     private readonly ICenarioService cenarioService;
+    private readonly IOtimizadorService otimizadorService;
 
-    public CenariosController(ICenarioService cenarioService, IServiceProvider serviceProvider) : base(serviceProvider)
+    public CenariosController(ICenarioService cenarioService, IOtimizadorService otimizadorService, IServiceProvider serviceProvider) : base(serviceProvider)
     {
         this.cenarioService = cenarioService;
+        this.otimizadorService = otimizadorService;
+    }
+
+    // Registrado antes de [HttpGet("{id}")] para precedência de rota: segmento literal
+    // "criterios-disponiveis" tem prioridade sobre o parâmetro "{id}" no attribute routing do
+    // ASP.NET Core (changelog 2026-08-03). Assim /cenarios/criterios-disponiveis não cai em ObterAsync.
+    [HttpGet("criterios-disponiveis")]
+    public async Task<List<CriterioDisponivelResponse>> ListarCriteriosDisponiveisAsync()
+    {
+        return await cenarioService.ListarCriteriosDisponiveisAsync();
     }
 
     [HttpGet("")]
@@ -36,8 +50,20 @@ public class CenariosController : BaseController
         return await cenarioService.CriarAsync(model);
     }
 
+    [HttpPut("{id}")]
+    public async Task<CenarioDetalheResponse> AtualizarAsync(string id, [FromBody] CenarioAtualizacaoRequest model)
+    {
+        return await cenarioService.AtualizarAsync(id, model);
+    }
+
+    [HttpDelete("{id}")]
+    public async Task RemoverAsync(string id)
+    {
+        await cenarioService.RemoverAsync(id);
+    }
+
     [HttpPost("{id}/csv")]
-    public async Task<CenarioUploadArquivoResponse> UploadArquivoAsync(string id, IFormFile arquivo)
+    public async Task<CenarioDetalheResponse> UploadArquivoAsync(string id, IFormFile arquivo)
     {
         if (arquivo == null || arquivo.Length == 0)
             throw new ApiException("Arquivo CSV não informado");
@@ -47,16 +73,18 @@ public class CenariosController : BaseController
         return await cenarioService.UploadArquivoAsync(id, arquivo.FileName, stream);
     }
 
-    [HttpDelete("{id}")]
-    public async Task<IActionResult> RemoverAsync(string id)
+    [HttpGet("{id}/csv")]
+    public async Task<IActionResult> DownloadArquivoAsync(string id)
     {
-        await cenarioService.RemoverAsync(id);
+        var (nome, conteudo) = await cenarioService.DownloadArquivoAsync(id);
 
-        return NoContent();
+        var bytes = System.Text.Encoding.UTF8.GetBytes(conteudo);
+
+        return File(bytes, "text/csv", nome);
     }
 
     [HttpPost("{id}/processar")]
-    public async Task<CenarioProcessamentoResponse> ProcessarAsync(string id)
+    public async Task<CenarioDetalheResponse> ProcessarAsync(string id)
     {
         return await cenarioService.ProcessarAsync(id);
     }
@@ -68,20 +96,26 @@ public class CenariosController : BaseController
     }
 
     [HttpGet("{id}/semanas/{ano}/{semana}/pedidos")]
-    public async Task<List<PedidoListaResponse>> ListarPedidosDaSemanaAsync(string id, int ano, int semana)
+    public async Task<List<PedidoResponse>> ListarPedidosDaSemanaAsync(string id, int ano, int semana)
     {
         return await cenarioService.ListarPedidosDaSemanaAsync(id, ano, semana);
     }
 
     [HttpPatch("{id}/pedidos/mover")]
-    public async Task<PedidoMovimentacaoResponse> MoverPedidoAsync(string id, [FromBody] PedidoMovimentacaoRequest model)
+    public async Task<PedidoResponse> MoverPedidoAsync(string id, [FromBody] MoverPedidoRequest model)
     {
         return await cenarioService.MoverPedidoAsync(id, model);
     }
 
     [HttpPost("{id}/submeter")]
-    public async Task<CenarioSubmissaoResponse> SubmeterAsync(string id)
+    public async Task<CenarioDetalheResponse> SubmeterAsync(string id)
     {
         return await cenarioService.SubmeterAsync(id);
+    }
+
+    [HttpPost("{id}/otimizar")]
+    public async Task<OtimizacaoResponse> OtimizarAsync(string id, [FromBody] OtimizacaoRequest? model)
+    {
+        return await otimizadorService.OtimizarCenarioAsync(id, model);
     }
 }

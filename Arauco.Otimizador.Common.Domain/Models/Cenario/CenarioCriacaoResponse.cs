@@ -1,21 +1,8 @@
-using Arauco.Otimizador.Common.Domain.Enums.Cenario;
-using Arauco.Otimizador.Common.Domain.Models.Parametro;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Converters;
-
 namespace Arauco.Otimizador.Common.Domain.Models.Cenario;
 
-// Retornado por POST /Cenarios. Não inclui ArquivoNome/DataUltimoProcessamento/Submetido/
-// PrimeiraSemana/UltimaSemana — logo após a criação esses campos são sempre nulos/vazios/false,
-// então não fazem parte do que é "necessário saber" nesse momento (ver GET /Cenarios/{id} para o
-// estado completo).
+// Retornado por POST /cenarios. O front só usa o identificador do cenário recém-criado, para
+// redirecionar à tela de detalhes — por isso não retorna a representação completa (spec §3.4.1).
 public class CenarioCriacaoResponse
 {
     public string Id { get; set; }
-    public string Nome { get; set; }
-    public List<ParametroListaResponse> Parametros { get; set; }
-    public DateTime DataCriacao { get; set; }
-
-    [JsonConverter(typeof(StringEnumConverter))]
-    public StatusCenarioEnum Status { get; set; }
 }

@@ -1,0 +1,101 @@
+﻿ProdutoId,LinhaProdutoId,LoteMinimo,Saldo_Aberto_M3,Linhas,Motivo
+2000201,1,0.0,3122.32,62,sem elegibilidade cadastrada
+1770811,1,,1654.14,44,sem elegibilidade cadastrada
+1782263,5,,1409.4,238,sem elegibilidade cadastrada
+1765938,4,,1376.74,11,sem elegibilidade cadastrada
+1626924,14,0.0,1274.11,18,"elegivel, mas sem capacidade na linha de produto"
+1816841,9,,1005.15,35,sem elegibilidade cadastrada
+1741168,9,100.0,728.38,25,sem elegibilidade cadastrada
+1659052,14,0.0,680.1,28,"elegivel, mas sem capacidade na linha de produto"
+1782264,5,,556.55,109,sem elegibilidade cadastrada
+1210806,12,0.0,493.61,41,"elegivel, mas sem capacidade na linha de produto"
+1741172,9,100.0,465.88,11,sem elegibilidade cadastrada
+1309362,14,0.0,435.07,13,"elegivel, mas sem capacidade na linha de produto"
+1798969,9,,421.84,4,sem elegibilidade cadastrada
+1782244,5,,393.48,96,sem elegibilidade cadastrada
+1813381,9,,346.86,9,sem elegibilidade cadastrada
+1769558,4,,289.84,3,sem elegibilidade cadastrada
+1798950,9,,252.98,7,sem elegibilidade cadastrada
+1782269,5,,250.1,70,sem elegibilidade cadastrada
+1783769,3,,244.0,64,sem elegibilidade cadastrada
+1764664,5,,216.55,62,sem elegibilidade cadastrada
+1773852,17,,205.12,4,sem elegibilidade cadastrada
+1782512,9,,195.56,3,sem elegibilidade cadastrada
+1765503,14,0.0,191.36,10,"elegivel, mas sem capacidade na linha de produto"
+1774737,9,,188.08,4,sem elegibilidade cadastrada
+1628659,17,,184.4,4,sem elegibilidade cadastrada
+1782515,9,,173.56,5,sem elegibilidade cadastrada
+1782516,9,,161.99,4,sem elegibilidade cadastrada
+1808088,9,,152.34,3,sem elegibilidade cadastrada
+1782434,9,,151.73,1,sem elegibilidade cadastrada
+1765210,13,0.0,149.81,5,"elegivel, mas sem capacidade na linha de produto"
+1294550,12,0.0,147.31,6,"elegivel, mas sem capacidade na linha de produto"
+1783447,3,,146.4,44,sem elegibilidade cadastrada
+1793562,9,,135.87,3,sem elegibilidade cadastrada
+1210807,14,0.0,133.99,4,"elegivel, mas sem capacidade na linha de produto"
+1782245,5,,128.34,35,sem elegibilidade cadastrada
+1782262,5,,122.26,87,sem elegibilidade cadastrada
+1783364,5,,122.0,38,sem elegibilidade cadastrada
+1782948,5,,122.0,39,sem elegibilidade cadastrada
+1810336,8,,118.56,3,sem elegibilidade cadastrada
+1783770,3,,118.51,29,sem elegibilidade cadastrada
+1797403,12,,112.84,4,sem elegibilidade cadastrada
+1798966,9,,105.43,2,sem elegibilidade cadastrada
+1780151,2,,104.0,3,sem elegibilidade cadastrada
+1667611,14,0.0,103.42,7,"elegivel, mas sem capacidade na linha de produto"
+1764665,5,,98.74,26,sem elegibilidade cadastrada
+1783490,3,,85.7,6,sem elegibilidade cadastrada
+1782292,3,,85.41,25,sem elegibilidade cadastrada
+1783486,3,,85.4,26,sem elegibilidade cadastrada
+1709596,9,100.0,82.41,2,sem elegibilidade cadastrada
+1782248,5,,82.36,17,sem elegibilidade cadastrada
+1782949,5,,82.26,24,sem elegibilidade cadastrada
+1770324,7,,80.57,3,sem elegibilidade cadastrada
+1719979,1,0.0,76.92,2,sem elegibilidade cadastrada
+1782270,5,,75.67,23,sem elegibilidade cadastrada
+1765184,13,0.0,73.75,3,"elegivel, mas sem capacidade na linha de produto"
+1782947,5,,73.2,24,sem elegibilidade cadastrada
+1783365,5,,72.38,22,sem elegibilidade cadastrada
+1725005,13,0.0,65.82,1,"elegivel, mas sem capacidade na linha de produto"
+1782249,5,,59.24,16,sem elegibilidade cadastrada
+1662445,14,0.0,58.76,3,"elegivel, mas sem capacidade na linha de produto"
+1782023,5,,57.95,15,sem elegibilidade cadastrada
+1662443,13,0.0,56.41,4,"elegivel, mas sem capacidade na linha de produto"
+1793518,14,,56.4,3,sem elegibilidade cadastrada
+1783788,3,,52.67,13,sem elegibilidade cadastrada
+1806399,13,,51.09,2,sem elegibilidade cadastrada
+1783217,3,,48.8,16,sem elegibilidade cadastrada
+1790809,4,,48.56,2,sem elegibilidade cadastrada
+1807715,4,,45.78,1,sem elegibilidade cadastrada
+1780188,3,,45.75,14,sem elegibilidade cadastrada
+1783487,3,,42.79,11,sem elegibilidade cadastrada
+1783491,3,,42.71,5,sem elegibilidade cadastrada
+1638450,13,0.0,42.31,2,"elegivel, mas sem capacidade na linha de produto"
+1777825,1,,41.75,1,sem elegibilidade cadastrada
+1746747,9,0.0,39.55,3,sem elegibilidade cadastrada
+1782024,5,,39.5,10,sem elegibilidade cadastrada
+1210808,14,0.0,37.61,2,"elegivel, mas sem capacidade na linha de produto"
+1765189,13,0.0,36.93,1,"elegivel, mas sem capacidade na linha de produto"
+1771092,13,,36.83,2,sem elegibilidade cadastrada
+1746764,9,0.0,36.62,2,sem elegibilidade cadastrada
+1741166,9,100.0,36.61,6,sem elegibilidade cadastrada
+1497029,13,0.0,32.9,2,"elegivel, mas sem capacidade na linha de produto"
+1773555,7,,31.29,3,sem elegibilidade cadastrada
+1770385,4,,30.51,2,sem elegibilidade cadastrada
+1775362,8,,30.21,3,sem elegibilidade cadastrada
+1783218,3,,29.61,9,sem elegibilidade cadastrada
+1782243,5,,29.14,30,sem elegibilidade cadastrada
+1662371,13,0.0,28.2,5,"elegivel, mas sem capacidade na linha de produto"
+1623308,13,0.0,28.2,2,"elegivel, mas sem capacidade na linha de produto"
+1669757,14,0.0,28.03,2,"elegivel, mas sem capacidade na linha de produto"
+1776373,8,,27.46,2,sem elegibilidade cadastrada
+1782299,3,,27.45,8,sem elegibilidade cadastrada
+1782268,5,,27.32,27,sem elegibilidade cadastrada
+1783796,7,,26.86,1,sem elegibilidade cadastrada
+1780189,3,,26.32,8,sem elegibilidade cadastrada
+1783093,5,,26.32,8,sem elegibilidade cadastrada
+1279842,14,0.0,26.08,1,"elegivel, mas sem capacidade na linha de produto"
+1783799,3,,25.51,25,sem elegibilidade cadastrada
+1725004,13,0.0,23.5,2,"elegivel, mas sem capacidade na linha de produto"
+1775364,8,,23.49,2,sem elegibilidade cadastrada
+1782265,5,,21.32,9,sem elegibilidade cadastrada

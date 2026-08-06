@@ -1,4 +1,4 @@
-﻿using Arauco.Otimizador.Data.Entities;
+using Arauco.Otimizador.Data.Entities;
 using Techer.Common.Domain.Interfaces;
 using Techer.Data.MySql;
 
@@ -33,31 +33,21 @@ public class UnitOfWork : IUnitOfWork
         }
     }
 
-    private IGenericRepository<Entities.Cenario.CenarioParametro> cenarioParametroRepository;
-    public IGenericRepository<Entities.Cenario.CenarioParametro> CenarioParametroRepository
+    private IGenericRepository<Entities.Cenario.CenarioCriterio> cenarioCriterioRepository;
+    public IGenericRepository<Entities.Cenario.CenarioCriterio> CenarioCriterioRepository
     {
         get
         {
-            return this.cenarioParametroRepository ??= new GenericRepository<DbContext, Entities.Cenario.CenarioParametro>(context);
+            return this.cenarioCriterioRepository ??= new GenericRepository<DbContext, Entities.Cenario.CenarioCriterio>(context);
         }
     }
 
-    // Parametro
-    private IGenericRepository<Entities.Parametro.Parametro> parametroRepository;
-    public IGenericRepository<Entities.Parametro.Parametro> ParametroRepository
+    private IGenericRepository<Entities.Cenario.CenarioArquivo> cenarioArquivoRepository;
+    public IGenericRepository<Entities.Cenario.CenarioArquivo> CenarioArquivoRepository
     {
         get
         {
-            return this.parametroRepository ??= new GenericRepository<DbContext, Entities.Parametro.Parametro>(context);
-        }
-    }
-
-    private IGenericRepository<Entities.Parametro.ParametroValor> parametroValorRepository;
-    public IGenericRepository<Entities.Parametro.ParametroValor> ParametroValorRepository
-    {
-        get
-        {
-            return this.parametroValorRepository ??= new GenericRepository<DbContext, Entities.Parametro.ParametroValor>(context);
+            return this.cenarioArquivoRepository ??= new GenericRepository<DbContext, Entities.Cenario.CenarioArquivo>(context);
         }
     }
 
@@ -78,6 +68,61 @@ public class UnitOfWork : IUnitOfWork
         get
         {
             return this.pedidoRepository ??= new GenericRepository<DbContext, Entities.Pedido.Pedido>(context);
+        }
+    }
+
+    // Otimizador
+    private IGenericRepository<Entities.Otimizador.CenarioOtimizacaoResultado> cenarioOtimizacaoResultadoRepository;
+    public IGenericRepository<Entities.Otimizador.CenarioOtimizacaoResultado> CenarioOtimizacaoResultadoRepository
+    {
+        get
+        {
+            return this.cenarioOtimizacaoResultadoRepository ??= new GenericRepository<DbContext, Entities.Otimizador.CenarioOtimizacaoResultado>(context);
+        }
+    }
+
+    private IGenericRepository<Entities.Otimizador.OtimizacaoAlocacao> otimizacaoAlocacaoRepository;
+    public IGenericRepository<Entities.Otimizador.OtimizacaoAlocacao> OtimizacaoAlocacaoRepository
+    {
+        get
+        {
+            return this.otimizacaoAlocacaoRepository ??= new GenericRepository<DbContext, Entities.Otimizador.OtimizacaoAlocacao>(context);
+        }
+    }
+
+    private IGenericRepository<Entities.Otimizador.OtimizacaoNaoAlocado> otimizacaoNaoAlocadoRepository;
+    public IGenericRepository<Entities.Otimizador.OtimizacaoNaoAlocado> OtimizacaoNaoAlocadoRepository
+    {
+        get
+        {
+            return this.otimizacaoNaoAlocadoRepository ??= new GenericRepository<DbContext, Entities.Otimizador.OtimizacaoNaoAlocado>(context);
+        }
+    }
+
+    private IGenericRepository<Entities.Otimizador.OtimizacaoEmbarque> otimizacaoEmbarqueRepository;
+    public IGenericRepository<Entities.Otimizador.OtimizacaoEmbarque> OtimizacaoEmbarqueRepository
+    {
+        get
+        {
+            return this.otimizacaoEmbarqueRepository ??= new GenericRepository<DbContext, Entities.Otimizador.OtimizacaoEmbarque>(context);
+        }
+    }
+
+    private IGenericRepository<Entities.Otimizador.OtimizacaoOcupacao> otimizacaoOcupacaoRepository;
+    public IGenericRepository<Entities.Otimizador.OtimizacaoOcupacao> OtimizacaoOcupacaoRepository
+    {
+        get
+        {
+            return this.otimizacaoOcupacaoRepository ??= new GenericRepository<DbContext, Entities.Otimizador.OtimizacaoOcupacao>(context);
+        }
+    }
+
+    private IGenericRepository<Entities.Otimizador.OtimizacaoCriterio> otimizacaoCriterioRepository;
+    public IGenericRepository<Entities.Otimizador.OtimizacaoCriterio> OtimizacaoCriterioRepository
+    {
+        get
+        {
+            return this.otimizacaoCriterioRepository ??= new GenericRepository<DbContext, Entities.Otimizador.OtimizacaoCriterio>(context);
         }
     }
 

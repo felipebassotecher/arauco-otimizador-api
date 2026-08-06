@@ -1,10 +1,10 @@
 using Arauco.Otimizador.Common.Domain.Enums.Cenario;
+using Arauco.Otimizador.Common.Domain.Enums.Criterio;
 using Arauco.Otimizador.Common.Domain.Models.Cenario;
-using Arauco.Otimizador.Common.Domain.Models.Parametro;
+using Arauco.Otimizador.Common.Domain.Models.Criterio;
 using Arauco.Otimizador.Common.Domain.Models.Pedido;
 using Arauco.Otimizador.Common.Domain.Services.Cenario;
 using Arauco.Otimizador.Common.Domain.Util;
-using Arauco.Otimizador.Common.Storage;
 using Arauco.Otimizador.Data.Entities;
 using Arauco.Otimizador.Data.Entities.Cenario;
 using Arauco.Otimizador.Data.Entities.Demanda;
@@ -28,57 +28,48 @@ public class CenarioService : ServiceBase, ICenarioService
     {
     }
 
+    // Lista fixa (em código) dos critérios disponíveis — servida pela API (changelog 2026-08-03 /
+    // spec §3.10.1). Não há CRUD/tabela para isso; ao adicionar um critério, ele entra em
+    // CriteriosDisponiveis (Util/CriteriosDisponiveis.cs).
+    public Task<List<CriterioDisponivelResponse>> ListarCriteriosDisponiveisAsync()
+    {
+        var response = CriteriosDisponiveis.Todos
+            .Select(c => new CriterioDisponivelResponse
+            {
+                Chave = c.Chave,
+                Nome = c.Nome,
+                Tipo = c.Tipo
+            })
+            .ToList();
+
+        return Task.FromResult(response);
+    }
+
     public async Task<List<CenarioListaResponse>> ListarAsync()
     {
         var cenarios = await unitOfWork.CenarioRepository.AsQueryable().ToListAsync();
 
-        var responses = new List<CenarioListaResponse>();
-
-        foreach (var cenario in cenarios)
+        return cenarios.Select(c => new CenarioListaResponse
         {
-            var (primeiraSemana, ultimaSemana) = await _ObterSemanasAsync(cenario.CenarioId);
-
-            responses.Add(new CenarioListaResponse
-            {
-                Id = cenario.CenarioId,
-                Nome = cenario.Nome,
-                ArquivoNome = cenario.ArquivoNome,
-                DataCriacao = cenario.DataCriacao,
-                DataUltimoProcessamento = cenario.DataUltimoProcessamento,
-                Status = cenario.StatusEnum,
-                Submetido = cenario.Submetido,
-                PrimeiraSemana = primeiraSemana,
-                UltimaSemana = ultimaSemana
-            });
-        }
-
-        return responses;
+            Id = c.CenarioId,
+            Nome = c.Nome,
+            DataCriacao = c.DataCriacao,
+            DataUltimoProcessamento = c.DataUltimoProcessamento,
+            Submetido = c.Submetido
+        }).ToList();
     }
 
     public async Task<CenarioDetalheResponse> ObterAsync(string cenarioId)
     {
         var cenario = await _ObterCenarioAsync(cenarioId);
 
-        var parametros = await _ObterParametrosDoCenarioAsync(cenarioId);
-        var (primeiraSemana, ultimaSemana) = await _ObterSemanasAsync(cenarioId);
-
-        return new CenarioDetalheResponse
-        {
-            Id = cenario.CenarioId,
-            Nome = cenario.Nome,
-            Parametros = parametros,
-            ArquivoNome = cenario.ArquivoNome,
-            DataCriacao = cenario.DataCriacao,
-            DataUltimoProcessamento = cenario.DataUltimoProcessamento,
-            Status = cenario.StatusEnum,
-            Submetido = cenario.Submetido,
-            PrimeiraSemana = primeiraSemana,
-            UltimaSemana = ultimaSemana
-        };
+        return await _MapDetalheAsync(cenario);
     }
 
     public async Task<CenarioCriacaoResponse> CriarAsync(CenarioCriacaoRequest model)
     {
+        var criterios = _ValidarCriterios(model.Criterios);
+
         var cenario = new Cenario
         {
             CenarioId = await IdGenerator.New(),
@@ -92,35 +83,41 @@ public class CenarioService : ServiceBase, ICenarioService
 
         unitOfWork.CenarioRepository.Add(cenario);
 
-        if (model.ParametroIds != null)
-        {
-            foreach (var parametroId in model.ParametroIds)
-            {
-                unitOfWork.CenarioParametroRepository.Add(new CenarioParametro
-                {
-                    CenarioId = cenario.CenarioId,
-                    ParametroId = parametroId
-                });
-            }
-        }
+        _PersistirCriterios(cenario.CenarioId, criterios);
 
         await unitOfWork.SaveAsync();
 
-        var parametros = await _ObterParametrosDoCenarioAsync(cenario.CenarioId);
-
-        return new CenarioCriacaoResponse
-        {
-            Id = cenario.CenarioId,
-            Nome = cenario.Nome,
-            Parametros = parametros,
-            DataCriacao = cenario.DataCriacao,
-            Status = cenario.StatusEnum
-        };
+        return new CenarioCriacaoResponse { Id = cenario.CenarioId };
     }
 
-    public async Task<CenarioUploadArquivoResponse> UploadArquivoAsync(string cenarioId, string nomeArquivo, Stream conteudo)
+    public async Task<CenarioDetalheResponse> AtualizarAsync(string cenarioId, CenarioAtualizacaoRequest model)
     {
         var cenario = await _ObterCenarioAsync(cenarioId);
+
+        var criterios = _ValidarCriterios(model.Criterios);
+
+        cenario.Nome = model.Nome;
+
+        var criteriosExistentes = await unitOfWork
+            .CenarioCriterioRepository
+            .Where(c => c.CenarioId == cenarioId)
+            .ToListAsync();
+        unitOfWork.CenarioCriterioRepository.RemoveRange(criteriosExistentes);
+
+        _PersistirCriterios(cenarioId, criterios);
+
+        await unitOfWork.SaveAsync();
+
+        return await _MapDetalheAsync(cenario);
+    }
+
+    public async Task<CenarioDetalheResponse> UploadArquivoAsync(string cenarioId, string nomeArquivo, Stream conteudo)
+    {
+        var cenario = await _ObterCenarioAsync(cenarioId);
+
+        // Upload permitido apenas uma vez por cenário; o arquivo não pode ser substituído (spec §2.2).
+        if (!string.IsNullOrEmpty(cenario.ArquivoNome))
+            throw new SimultaneousAccessException();
 
         using var buffer = new MemoryStream();
         await conteudo.CopyToAsync(buffer);
@@ -129,16 +126,13 @@ public class CenarioService : ServiceBase, ICenarioService
             throw new ApiException("Arquivo CSV vazio");
 
         buffer.Position = 0;
-        await LocalFileStorageHelper.SaveAsync(environmentVariables, $"cenarios/{cenarioId}", nomeArquivo, buffer);
-
-        buffer.Position = 0;
         using var reader = new StreamReader(buffer);
         var conteudoCsv = await reader.ReadToEndAsync();
 
         var linhas = DemandaCsvParser.Parse(conteudoCsv);
 
-        var existentes = await unitOfWork.DemandaRepository.Where(d => d.CenarioId == cenarioId).ToListAsync();
-        unitOfWork.DemandaRepository.RemoveRange(existentes);
+        if (linhas.Count == 0)
+            throw new ApiException("Arquivo CSV inválido ou vazio");
 
         var demandas = linhas.Select(linha => new Demanda
         {
@@ -153,26 +147,30 @@ public class CenarioService : ServiceBase, ICenarioService
 
         unitOfWork.DemandaRepository.AddRange(demandas);
 
+        unitOfWork.CenarioArquivoRepository.Add(new CenarioArquivo
+        {
+            CenarioId = cenarioId,
+            Nome = nomeArquivo,
+            Conteudo = conteudoCsv,
+            DataUpload = DateTime.UtcNow
+        });
+
         cenario.ArquivoNome = nomeArquivo;
 
         await unitOfWork.SaveAsync();
 
-        var parametros = await _ObterParametrosDoCenarioAsync(cenarioId);
-        var (primeiraSemana, ultimaSemana) = await _ObterSemanasAsync(cenarioId);
+        return await _MapDetalheAsync(cenario);
+    }
 
-        return new CenarioUploadArquivoResponse
-        {
-            Id = cenario.CenarioId,
-            Nome = cenario.Nome,
-            Parametros = parametros,
-            ArquivoNome = cenario.ArquivoNome,
-            DataCriacao = cenario.DataCriacao,
-            DataUltimoProcessamento = cenario.DataUltimoProcessamento,
-            Status = cenario.StatusEnum,
-            Submetido = cenario.Submetido,
-            PrimeiraSemana = primeiraSemana,
-            UltimaSemana = ultimaSemana
-        };
+    public async Task<(string Nome, string Conteudo)> DownloadArquivoAsync(string cenarioId)
+    {
+        await _ObterCenarioAsync(cenarioId);
+
+        var arquivo = await unitOfWork
+            .CenarioArquivoRepository
+            .FirstOrDefaultAsync(a => a.CenarioId == cenarioId) ?? throw new NotFoundException("Nenhum arquivo de demandas carregado para este cenário");
+
+        return (arquivo.Nome, arquivo.Conteudo);
     }
 
     public async Task RemoverAsync(string cenarioId)
@@ -185,29 +183,38 @@ public class CenarioService : ServiceBase, ICenarioService
         var pedidos = await unitOfWork.PedidoRepository.Where(p => p.CenarioId == cenarioId).ToListAsync();
         unitOfWork.PedidoRepository.RemoveRange(pedidos);
 
-        var vinculos = await unitOfWork.CenarioParametroRepository.Where(c => c.CenarioId == cenarioId).ToListAsync();
-        unitOfWork.CenarioParametroRepository.RemoveRange(vinculos);
+        var criterios = await unitOfWork.CenarioCriterioRepository.Where(c => c.CenarioId == cenarioId).ToListAsync();
+        unitOfWork.CenarioCriterioRepository.RemoveRange(criterios);
+
+        var arquivo = await unitOfWork.CenarioArquivoRepository.FirstOrDefaultAsync(a => a.CenarioId == cenarioId);
+        if (arquivo != null)
+            unitOfWork.CenarioArquivoRepository.Remove(arquivo);
 
         unitOfWork.CenarioRepository.Remove(cenario);
 
         await unitOfWork.SaveAsync();
     }
 
-    public async Task<CenarioProcessamentoResponse> ProcessarAsync(string cenarioId)
+    public async Task<CenarioDetalheResponse> ProcessarAsync(string cenarioId)
     {
         var cenario = await _ObterCenarioAsync(cenarioId);
 
         if (cenario.Submetido)
             throw new SimultaneousAccessException();
 
+        // Sem demandas (arquivoNome nulo) não há o que processar (spec §2.2).
+        if (string.IsNullOrEmpty(cenario.ArquivoNome))
+            throw new ApiException("Cenário sem demandas carregadas");
+
         var demandas = await unitOfWork.DemandaRepository.Where(d => d.CenarioId == cenarioId).ToListAsync();
 
         var pedidosExistentes = await unitOfWork.PedidoRepository.Where(p => p.CenarioId == cenarioId).ToListAsync();
+        // Pedidos fixados manualmente (pinado = true) permanecem intactos numa nova execução (spec §5.4).
         var pedidosGerados = pedidosExistentes.Where(p => !p.Pinado).ToList();
-
-        // Pedidos fixados manualmente (pinado = true) permanecem intactos numa nova execução.
         unitOfWork.PedidoRepository.RemoveRange(pedidosGerados);
 
+        // Agrupamento por cliente + semana ISO (spec §5.3 — hoje agrupa por cliente; a aplicação dos
+        // pesos dos critérios na otimização é futuramente, mantendo o contrato PedidoResponse).
         var novosPedidos = demandas
             .GroupBy(d => new
             {
@@ -237,22 +244,7 @@ public class CenarioService : ServiceBase, ICenarioService
 
         await unitOfWork.SaveAsync();
 
-        var parametros = await _ObterParametrosDoCenarioAsync(cenarioId);
-        var (primeiraSemana, ultimaSemana) = await _ObterSemanasAsync(cenarioId);
-
-        return new CenarioProcessamentoResponse
-        {
-            Id = cenario.CenarioId,
-            Nome = cenario.Nome,
-            Parametros = parametros,
-            ArquivoNome = cenario.ArquivoNome,
-            DataCriacao = cenario.DataCriacao,
-            DataUltimoProcessamento = cenario.DataUltimoProcessamento,
-            Status = cenario.StatusEnum,
-            Submetido = cenario.Submetido,
-            PrimeiraSemana = primeiraSemana,
-            UltimaSemana = ultimaSemana
-        };
+        return await _MapDetalheAsync(cenario);
     }
 
     public async Task<CenarioMetricasResponse> ObterMetricasAsync(string cenarioId)
@@ -292,7 +284,7 @@ public class CenarioService : ServiceBase, ICenarioService
         };
     }
 
-    public async Task<List<PedidoListaResponse>> ListarPedidosDaSemanaAsync(string cenarioId, int ano, int semana)
+    public async Task<List<PedidoResponse>> ListarPedidosDaSemanaAsync(string cenarioId, int ano, int semana)
     {
         await _ObterCenarioAsync(cenarioId);
 
@@ -301,10 +293,10 @@ public class CenarioService : ServiceBase, ICenarioService
             .Where(p => p.CenarioId == cenarioId && p.Ano == ano && p.Semana == semana)
             .ToListAsync();
 
-        return pedidos.Select(_MapPedidoLista).ToList();
+        return pedidos.Select(_MapPedido).ToList();
     }
 
-    public async Task<PedidoMovimentacaoResponse> MoverPedidoAsync(string cenarioId, PedidoMovimentacaoRequest model)
+    public async Task<PedidoResponse> MoverPedidoAsync(string cenarioId, MoverPedidoRequest model)
     {
         var pedido = await unitOfWork
             .PedidoRepository
@@ -316,22 +308,10 @@ public class CenarioService : ServiceBase, ICenarioService
 
         await unitOfWork.SaveAsync();
 
-        return new PedidoMovimentacaoResponse
-        {
-            Id = pedido.PedidoId,
-            CenarioId = pedido.CenarioId,
-            Cliente = pedido.Cliente,
-            TipoFrete = pedido.TipoFreteEnum,
-            Volume = pedido.Volume,
-            DataEntregaPrevista = pedido.DataEntregaPrevista,
-            Ano = pedido.Ano,
-            Semana = pedido.Semana,
-            Pinado = pedido.Pinado,
-            Grupo = pedido.Grupo
-        };
+        return _MapPedido(pedido);
     }
 
-    public async Task<CenarioSubmissaoResponse> SubmeterAsync(string cenarioId)
+    public async Task<CenarioDetalheResponse> SubmeterAsync(string cenarioId)
     {
         var cenario = await _ObterCenarioAsync(cenarioId);
 
@@ -346,14 +326,26 @@ public class CenarioService : ServiceBase, ICenarioService
 
         await unitOfWork.SaveAsync();
 
-        var parametros = await _ObterParametrosDoCenarioAsync(cenarioId);
-        var (primeiraSemana, ultimaSemana) = await _ObterSemanasAsync(cenarioId);
+        return await _MapDetalheAsync(cenario);
+    }
 
-        return new CenarioSubmissaoResponse
+    private async Task<Cenario> _ObterCenarioAsync(string cenarioId)
+    {
+        return await unitOfWork
+            .CenarioRepository
+            .FirstOrDefaultAsync(c => c.CenarioId == cenarioId) ?? throw new NotFoundException("Cenário não encontrado");
+    }
+
+    private async Task<CenarioDetalheResponse> _MapDetalheAsync(Cenario cenario)
+    {
+        var criterios = await _ObterCriteriosDoCenarioAsync(cenario.CenarioId);
+        var (primeiraSemana, ultimaSemana) = await _ObterSemanasAsync(cenario.CenarioId);
+
+        return new CenarioDetalheResponse
         {
             Id = cenario.CenarioId,
             Nome = cenario.Nome,
-            Parametros = parametros,
+            Criterios = criterios,
             ArquivoNome = cenario.ArquivoNome,
             DataCriacao = cenario.DataCriacao,
             DataUltimoProcessamento = cenario.DataUltimoProcessamento,
@@ -364,41 +356,20 @@ public class CenarioService : ServiceBase, ICenarioService
         };
     }
 
-    private async Task<Cenario> _ObterCenarioAsync(string cenarioId)
+    private async Task<List<CriterioRegraResponse>> _ObterCriteriosDoCenarioAsync(string cenarioId)
     {
-        return await unitOfWork
-            .CenarioRepository
-            .FirstOrDefaultAsync(c => c.CenarioId == cenarioId) ?? throw new NotFoundException("Cenário não encontrado");
-    }
-
-    private async Task<List<ParametroListaResponse>> _ObterParametrosDoCenarioAsync(string cenarioId)
-    {
-        var parametroIds = await unitOfWork
-            .CenarioParametroRepository
+        var criterios = await unitOfWork
+            .CenarioCriterioRepository
             .Where(c => c.CenarioId == cenarioId)
-            .Select(c => c.ParametroId)
             .ToListAsync();
 
-        var parametros = await unitOfWork
-            .ParametroRepository
-            .Where(p => parametroIds.Contains(p.ParametroId))
-            .ToListAsync();
-
-        var valores = await unitOfWork
-            .ParametroValorRepository
-            .Where(v => parametroIds.Contains(v.ParametroId))
-            .ToListAsync();
-
-        return parametros
-            .Select(p => new ParametroListaResponse
+        return criterios
+            .Select(c => new CriterioRegraResponse
             {
-                Id = p.ParametroId,
-                Nome = p.Nome,
-                Chave = p.Chave,
-                Descricao = p.Descricao,
-                Peso = p.Peso,
-                Ativo = p.Ativo,
-                Valores = _MapValores(valores.Where(v => v.ParametroId == p.ParametroId).ToList())
+                CriterioChave = CriteriosDisponiveis.ObterChaveEnum(c.CriterioChave) ?? CriterioChaveEnum.TipoFrete,
+                Operador = c.Operador,
+                Valor = c.Valor,
+                Peso = c.Peso
             })
             .ToList();
     }
@@ -421,33 +392,55 @@ public class CenarioService : ServiceBase, ICenarioService
         return (primeiraSemana, ultimaSemana);
     }
 
-    private static List<ParametroValorResponse>? _MapValores(List<Data.Entities.Parametro.ParametroValor> valores)
+    // Valida a lista de regras de critério (spec §3.9/§5.10): chave existe, operador compatível com o
+    // tipo do critério, peso entre -100 e 100. Retorna a lista validada. Lança ApiException (400).
+    private static List<CriterioRegraRequest> _ValidarCriterios(List<CriterioRegraRequest> criterios)
     {
-        if (valores.Count == 0)
-            return null;
+        if (criterios == null || criterios.Count == 0)
+            throw new ApiException("Cenário deve ter ao menos um critério");
 
-        return valores.Select(v => new ParametroValorResponse
+        foreach (var regra in criterios)
         {
-            Valor = v.Valor,
-            Rotulo = v.Rotulo,
-            Peso = v.Peso
-        }).ToList();
+            var tipo = CriteriosDisponiveis.ObterTipo(regra.CriterioChave)
+                ?? throw new ApiException($"Critério '{regra.CriterioChave}' não é um critério disponível");
+
+            if (!CriteriosDisponiveis.OperadorCompativel(tipo, regra.Operador))
+                throw new ApiException($"Operador '{regra.Operador}' não é compatível com o critério '{regra.CriterioChave}' ({tipo})");
+
+            if (regra.Peso < -100 || regra.Peso > 100)
+                throw new ApiException("Peso deve estar entre -100 e 100");
+        }
+
+        return criterios;
     }
 
-    private static PedidoListaResponse _MapPedidoLista(Pedido pedido)
+    private void _PersistirCriterios(string cenarioId, List<CriterioRegraRequest> criterios)
     {
-        return new PedidoListaResponse
+        foreach (var regra in criterios)
+        {
+            unitOfWork.CenarioCriterioRepository.Add(new CenarioCriterio
+            {
+                CenarioId = cenarioId,
+                CriterioChave = CriteriosDisponiveis.ObterChaveString(regra.CriterioChave),
+                Operador = regra.Operador,
+                Valor = regra.Valor,
+                Peso = regra.Peso
+            });
+        }
+    }
+
+    private static PedidoResponse _MapPedido(Pedido pedido)
+    {
+        return new PedidoResponse
         {
             Id = pedido.PedidoId,
-            CenarioId = pedido.CenarioId,
             Cliente = pedido.Cliente,
-            TipoFrete = pedido.TipoFreteEnum,
+            TipoFrete = pedido.TipoFreteEnum.ToString(),
             Volume = pedido.Volume,
             DataEntregaPrevista = pedido.DataEntregaPrevista,
             Ano = pedido.Ano,
             Semana = pedido.Semana,
-            Pinado = pedido.Pinado,
-            Grupo = pedido.Grupo
+            Pinado = pedido.Pinado
         };
     }
 }

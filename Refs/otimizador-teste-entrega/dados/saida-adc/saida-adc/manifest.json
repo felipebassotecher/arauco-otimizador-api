@@ -1,0 +1,147 @@
+{
+  "gerado_em": "2026-07-31T19:00:03.471669+00:00",
+  "database": "ADC",
+  "server": "server",
+  "python": "3.11.15",
+  "formato_dados": "parquet",
+  "sondagens": {
+    "p0_schema": {
+      "linhas": 100,
+      "segundos": 0.1
+    },
+    "p1_tamanho": {
+      "linhas": 3,
+      "segundos": 0.38
+    },
+    "p1b_periodos": {
+      "linhas": 3,
+      "segundos": 0.05
+    },
+    "p2_taticos": {
+      "linhas": 12,
+      "segundos": 0.02
+    },
+    "p3_capacidade_leaf": {
+      "linhas": 147,
+      "segundos": 0.31
+    },
+    "p4_elegibilidade_x_capacidade": {
+      "linhas": 1,
+      "segundos": 0.1
+    },
+    "p4b_produtos_sem_destino": {
+      "linhas": 100,
+      "segundos": 0.06
+    },
+    "p5a_preenchimento": {
+      "linhas": 1,
+      "segundos": 0.02
+    },
+    "p5b_categoricos": {
+      "linhas": 398,
+      "segundos": 0.17
+    },
+    "p5c_ordens_de_grandeza": {
+      "linhas": 1,
+      "segundos": 0.04
+    }
+  },
+  "datasets": {
+    "demanda": {
+      "linhas": 14861,
+      "colunas": [
+        "carteira_id",
+        "mes",
+        "ano",
+        "cliente_id",
+        "cliente_nome",
+        "produto_id",
+        "linha_produto_id",
+        "volume_m3",
+        "carteira_m3",
+        "faturado_m3",
+        "data_documento",
+        "incoterms",
+        "segmento",
+        "status_credito",
+        "tipo_documento_venda",
+        "numero_pedido",
+        "vendedor",
+        "regiao",
+        "centro_original",
+        "data_solicitacao_remessa",
+        "prioridade_remessa"
+      ],
+      "arquivo": "demanda.parquet",
+      "bytes": 228151,
+      "segundos": 0.28
+    },
+    "capacidade": {
+      "linhas": 446,
+      "colunas": [
+        "planejamento_id",
+        "data_criacao",
+        "situacao",
+        "mes",
+        "ano",
+        "centro_id",
+        "linha_producao_id",
+        "tipo_alocacao",
+        "linha_produto_id",
+        "semana_iso",
+        "quantidade"
+      ],
+      "arquivo": "capacidade.parquet",
+      "bytes": 9213,
+      "segundos": 0.19
+    },
+    "produtos": {
+      "linhas": 5452,
+      "colunas": [
+        "produto_id",
+        "descricao",
+        "linha_produto_id",
+        "lote_minimo",
+        "largura",
+        "comprimento",
+        "espessura",
+        "ativo",
+        "linha_produto_nome",
+        "familia_produto_id",
+        "familia_produto_nome"
+      ],
+      "arquivo": "produtos.parquet",
+      "bytes": 124586,
+      "segundos": 0.08
+    },
+    "elegibilidade": {
+      "linhas": 8542,
+      "colunas": [
+        "produto_id",
+        "centro_id",
+        "linha_producao_id",
+        "linha_producao_nome",
+        "exportacao"
+      ],
+      "arquivo": "elegibilidade.parquet",
+      "bytes": 33427,
+      "segundos": 0.03
+    },
+    "centros": {
+      "linhas": 6,
+      "colunas": [
+        "CentroId",
+        "Codigo",
+        "Nome",
+        "Ativo",
+        "DataHoraExclusao",
+        "PorcentagemIndustria",
+        "PorcentagemRevenda"
+      ],
+      "arquivo": "centros.parquet",
+      "bytes": 4627,
+      "segundos": 0.0
+    }
+  },
+  "erros": []
+}

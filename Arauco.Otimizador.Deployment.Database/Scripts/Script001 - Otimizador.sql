@@ -9,34 +9,25 @@ CREATE TABLE `Cenario` (
 	PRIMARY KEY (`CenarioId`)
 );
 
-CREATE TABLE `Parametro` (
-	`ParametroId` CHAR(6) NOT NULL,
-	`Nome` VARCHAR(200) NOT NULL,
-	`Chave` VARCHAR(100) NOT NULL,
-	`Descricao` VARCHAR(500) NOT NULL,
-	`Peso` DOUBLE NOT NULL,
-	`Ativo` BIT NOT NULL,
-	PRIMARY KEY (`ParametroId`),
-	UNIQUE KEY `UQ_Parametro_Chave` (`Chave`)
-);
-
-CREATE TABLE `ParametroValor` (
+CREATE TABLE `CenarioCriterio` (
 	`Id` INT NOT NULL AUTO_INCREMENT,
-	`ParametroId` CHAR(6) NOT NULL,
+	`CenarioId` CHAR(6) NOT NULL,
+	`CriterioChave` VARCHAR(100) NOT NULL,
+	`OperadorId` INT NOT NULL,
 	`Valor` VARCHAR(200) NOT NULL,
-	`Rotulo` VARCHAR(200) NOT NULL,
-	`Peso` DOUBLE NULL,
+	`Peso` INT NOT NULL,
 	PRIMARY KEY (`Id`),
-	KEY `IX_ParametroValor_ParametroId` (`ParametroId`),
-	CONSTRAINT `FK_ParametroValor_Parametro` FOREIGN KEY (`ParametroId`) REFERENCES `Parametro` (`ParametroId`)
+	KEY `IX_CenarioCriterio_CenarioId` (`CenarioId`),
+	CONSTRAINT `FK_CenarioCriterio_Cenario` FOREIGN KEY (`CenarioId`) REFERENCES `Cenario` (`CenarioId`)
 );
 
-CREATE TABLE `CenarioParametro` (
+CREATE TABLE `CenarioArquivo` (
 	`CenarioId` CHAR(6) NOT NULL,
-	`ParametroId` CHAR(6) NOT NULL,
-	PRIMARY KEY (`CenarioId`, `ParametroId`),
-	CONSTRAINT `FK_CenarioParametro_Cenario` FOREIGN KEY (`CenarioId`) REFERENCES `Cenario` (`CenarioId`),
-	CONSTRAINT `FK_CenarioParametro_Parametro` FOREIGN KEY (`ParametroId`) REFERENCES `Parametro` (`ParametroId`)
+	`Nome` VARCHAR(200) NOT NULL,
+	`Conteudo` LONGTEXT NOT NULL,
+	`DataUpload` DATETIME NOT NULL,
+	PRIMARY KEY (`CenarioId`),
+	CONSTRAINT `FK_CenarioArquivo_Cenario` FOREIGN KEY (`CenarioId`) REFERENCES `Cenario` (`CenarioId`)
 );
 
 CREATE TABLE `Demanda` (

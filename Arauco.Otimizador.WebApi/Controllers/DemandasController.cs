@@ -17,13 +17,13 @@ public class DemandasController : BaseController
     }
 
     [HttpGet("")]
-    public async Task<List<DemandaListaResponse>> ListarAsync([FromQuery] string cenarioId)
+    public async Task<List<DemandaResponse>> ListarAsync([FromQuery] string cenarioId)
     {
         return await demandaService.ListarAsync(cenarioId);
     }
 
     [HttpPost("upload")]
-    public async Task<List<DemandaUploadResponse>> UploadAsync([FromBody] DemandaUploadRequest model)
+    public async Task<List<DemandaResponse>> UploadAsync([FromBody] DemandaUploadRequest model)
     {
         return await demandaService.UploadAsync(model);
     }
