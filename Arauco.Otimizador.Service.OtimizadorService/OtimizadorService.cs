@@ -80,7 +80,7 @@ public class OtimizadorService : ServiceBase, IOtimizadorService
             var semana = SemanaIso.Parse(a.Semana);
             alocacoes.Add(new OtimizacaoAlocacao
             {
-                AlocacaoId = await IdGenerator.New(),
+                AlocacaoId = await IdGenerator.New(12),
                 ResultadoId = resultadoId,
                 Cliente = a.ClienteId,
                 Produto = a.ProdutoId,
@@ -106,7 +106,7 @@ public class OtimizadorService : ServiceBase, IOtimizadorService
         {
             naoAlocados.Add(new OtimizacaoNaoAlocado
             {
-                NaoAlocadoId = await IdGenerator.New(),
+                NaoAlocadoId = await IdGenerator.New(12),
                 ResultadoId = resultadoId,
                 Cliente = n.ClienteId,
                 Produto = n.ProdutoId,
@@ -147,7 +147,7 @@ public class OtimizadorService : ServiceBase, IOtimizadorService
             var semana = SemanaIso.Parse(o.Semana);
             ocupacoes.Add(new OtimizacaoOcupacao
             {
-                OcupacaoId = await IdGenerator.New(),
+                OcupacaoId = await IdGenerator.New(12),
                 ResultadoId = resultadoId,
                 CentroId = o.CentroId,
                 Centro = o.Centro,

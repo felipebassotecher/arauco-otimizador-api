@@ -36,7 +36,7 @@ public static class DemandaParaCarteiraMapper
                 VolumeM3: (double)d.Volume,
                 DataDocumento: d.DataEntregaDesejada,
                 Incoterms: d.TipoFreteEnum.ToString().ToUpperInvariant(),
-                Segmento: "REVENDA",
+                Segmento: d.SegmentoEnum.ToString().ToUpperInvariant(),
                 CentroOriginal: centroOriginal));
         }
 

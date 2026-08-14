@@ -13,7 +13,8 @@ public static class CriteriosDisponiveis
 
     private static readonly List<Criterio> Itens = new()
     {
-        new Criterio(CriterioChaveEnum.TipoFrete, "tipoFrete", "Tipo de Frete", TipoCriterioEnum.String)
+        new Criterio(CriterioChaveEnum.TipoFrete, "tipoFrete", "Tipo de Frete", TipoCriterioEnum.String),
+        new Criterio(CriterioChaveEnum.TipoCliente, "tipoCliente", "Tipo de Cliente", TipoCriterioEnum.String)
     };
 
     public static IReadOnlyList<Criterio> Todos => Itens;

@@ -1,9 +1,11 @@
 using Arauco.Otimizador.Common.Domain.Models.Cenario;
 using Arauco.Otimizador.Common.Domain.Models.Criterio;
 using Arauco.Otimizador.Common.Domain.Models.Otimizador;
+using Arauco.Otimizador.Common.Domain.Models.OtimizadorV2;
 using Arauco.Otimizador.Common.Domain.Models.Pedido;
 using Arauco.Otimizador.Common.Domain.Services.Cenario;
 using Arauco.Otimizador.Common.Domain.Services.Otimizador;
+using Arauco.Otimizador.Common.Domain.Services.OtimizadorV2;
 using Arauco.Otimizador.WebApi.Base.Controller;
 using Microsoft.AspNetCore.Mvc;
 using Techer.Common.Domain.Exceptions;
@@ -16,11 +18,17 @@ public class CenariosController : BaseController
 {
     private readonly ICenarioService cenarioService;
     private readonly IOtimizadorService otimizadorService;
+    private readonly IOtimizadorV2Service otimizadorV2Service;
 
-    public CenariosController(ICenarioService cenarioService, IOtimizadorService otimizadorService, IServiceProvider serviceProvider) : base(serviceProvider)
+    public CenariosController(
+        ICenarioService cenarioService,
+        IOtimizadorService otimizadorService,
+        IOtimizadorV2Service otimizadorV2Service,
+        IServiceProvider serviceProvider) : base(serviceProvider)
     {
         this.cenarioService = cenarioService;
         this.otimizadorService = otimizadorService;
+        this.otimizadorV2Service = otimizadorV2Service;
     }
 
     // Registrado antes de [HttpGet("{id}")] para precedência de rota: segmento literal
@@ -117,5 +125,23 @@ public class CenariosController : BaseController
     public async Task<OtimizacaoResponse> OtimizarAsync(string id, [FromBody] OtimizacaoRequest? model)
     {
         return await otimizadorService.OtimizarCenarioAsync(id, model);
+    }
+
+    [HttpPost("{id}/otimizar-v2")]
+    public async Task<OtimizacaoV2Response> OtimizarV2Async(string id, [FromBody] OtimizacaoV2Request? model)
+    {
+        return await otimizadorV2Service.OtimizarAsync(id, model);
+    }
+
+    [HttpGet("{id}/otimizar-v2/semanas/{ano}/{semana}/pedidos")]
+    public async Task<List<PedidoV2Response>> ListarPedidosV2DaSemanaAsync(string id, int ano, int semana)
+    {
+        return await otimizadorV2Service.ListarPedidosDaSemanaAsync(id, ano, semana);
+    }
+
+    [HttpPatch("{id}/otimizar-v2/pedidos/mover")]
+    public async Task<PedidoV2Response> MoverPedidoV2Async(string id, [FromBody] MoverPedidoV2Request model)
+    {
+        return await otimizadorV2Service.MoverPedidoAsync(id, model);
     }
 }

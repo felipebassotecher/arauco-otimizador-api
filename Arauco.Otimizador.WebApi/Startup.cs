@@ -3,6 +3,7 @@ using Arauco.Otimizador.Common.Domain.Services.Cenario;
 using Arauco.Otimizador.Common.Domain.Services.Conta;
 using Arauco.Otimizador.Common.Domain.Services.Demanda;
 using Arauco.Otimizador.Common.Domain.Services.Otimizador;
+using Arauco.Otimizador.Common.Domain.Services.OtimizadorV2;
 using Arauco.Otimizador.Data.Entities;
 using Arauco.Otimizador.Data.MySql;
 using Arauco.Otimizador.Service.CartaoService;
@@ -10,6 +11,7 @@ using Arauco.Otimizador.Service.CenarioService;
 using Arauco.Otimizador.Service.ContaService;
 using Arauco.Otimizador.Service.DemandaService;
 using Arauco.Otimizador.Service.OtimizadorService;
+using Arauco.Otimizador.Service.OtimizadorV2Service;
 using Arauco.Otimizador.WebApi.Base.Builders;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -48,6 +50,7 @@ public class Startup
                 s.AddScoped<IDemandaService, DemandaService>();
                 s.AddScoped<IContaService, ContaService>();
                 s.AddScoped<IOtimizadorService, OtimizadorService>();
+                s.AddScoped<IOtimizadorV2Service, OtimizadorV2Service>();
             });
     }
 

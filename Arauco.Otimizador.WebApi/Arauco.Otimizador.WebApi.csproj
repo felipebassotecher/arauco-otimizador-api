@@ -17,6 +17,7 @@
     <ProjectReference Include="..\Arauco.Otimizador.Service.ContaService\Arauco.Otimizador.Service.ContaService.csproj" />
     <ProjectReference Include="..\Arauco.Otimizador.Service.DemandaService\Arauco.Otimizador.Service.DemandaService.csproj" />
     <ProjectReference Include="..\Arauco.Otimizador.Service.OtimizadorService\Arauco.Otimizador.Service.OtimizadorService.csproj" />
+    <ProjectReference Include="..\Arauco.Otimizador.Service.OtimizadorV2Service\Arauco.Otimizador.Service.OtimizadorV2Service.csproj" />
     <ProjectReference Include="..\Arauco.Otimizador.WebApi.Base\Arauco.Otimizador.WebApi.Base.csproj" />
   </ItemGroup>
 

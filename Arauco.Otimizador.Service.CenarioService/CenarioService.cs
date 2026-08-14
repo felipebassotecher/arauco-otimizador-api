@@ -142,7 +142,8 @@ public class CenarioService : ServiceBase, ICenarioService
             Material = linha.Material,
             Volume = linha.Volume,
             DataEntregaDesejada = linha.DataEntrega,
-            TipoFreteEnum = linha.TipoFrete
+            TipoFreteEnum = linha.TipoFrete,
+            SegmentoEnum = linha.Segmento
         }).ToList();
 
         unitOfWork.DemandaRepository.AddRange(demandas);
@@ -224,7 +225,7 @@ public class CenarioService : ServiceBase, ICenarioService
             })
             .Select(grupo => new Pedido
             {
-                PedidoId = IdGenerator.NewSync(),
+                PedidoId = IdGenerator.NewSync(12),
                 CenarioId = cenarioId,
                 Cliente = grupo.Key.Cliente,
                 TipoFreteEnum = grupo.First().TipoFreteEnum,

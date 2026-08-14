@@ -6,11 +6,12 @@ namespace Arauco.Otimizador.Common.Domain.Util;
 // Compartilhado entre CenarioService (criação) e DemandaService (upload) para não duplicar o parse do CSV.
 public static class DemandaCsvParser
 {
-    public record LinhaDemanda(string Cliente, string Material, decimal Volume, DateTime DataEntrega, TipoFreteEnum TipoFrete);
+    public record LinhaDemanda(string Cliente, string Material, decimal Volume, DateTime DataEntrega, TipoFreteEnum TipoFrete, SegmentoEnum Segmento);
 
     private static readonly string[] DateFormats = { "dd/MM/yyyy", "yyyy-MM-dd", "MM/dd/yyyy" };
 
-    // Formato esperado: Cliente,Material,Volume,DataEntrega,TipoFrete
+    // Formato esperado: Cliente,Material,Volume,DataEntrega,TipoFrete,Segmento (a 6ª coluna é opcional —
+    // CSV antigo de 5 colunas assume Revenda, mesmo default que já era hardcoded antes do campo existir).
     // Linhas que não parseiam como uma demanda válida (ex.: cabeçalho) são ignoradas silenciosamente.
     public static List<LinhaDemanda> Parse(string conteudoCsv)
     {
@@ -42,7 +43,11 @@ public static class DemandaCsvParser
                 ? TipoFreteEnum.CIF
                 : TipoFreteEnum.FOB;
 
-            linhas.Add(new LinhaDemanda(colunas[0].Trim(), colunas[1].Trim(), volume, dataEntrega, tipoFrete));
+            var segmento = colunas.Length > 5 && colunas[5].Trim().Equals("INDUSTRIA", StringComparison.OrdinalIgnoreCase)
+                ? SegmentoEnum.Industria
+                : SegmentoEnum.Revenda;
+
+            linhas.Add(new LinhaDemanda(colunas[0].Trim(), colunas[1].Trim(), volume, dataEntrega, tipoFrete, segmento));
         }
 
         return linhas;

@@ -53,7 +53,8 @@ public class DemandaService : ServiceBase, IDemandaService
                 Material = linha.Material,
                 Volume = linha.Volume,
                 DataEntregaDesejada = linha.DataEntrega,
-                TipoFreteEnum = linha.TipoFrete
+                TipoFreteEnum = linha.TipoFrete,
+                SegmentoEnum = linha.Segmento
             });
         }
 
@@ -73,7 +74,8 @@ public class DemandaService : ServiceBase, IDemandaService
             Material = demanda.Material,
             Volume = demanda.Volume,
             DataEntregaDesejada = demanda.DataEntregaDesejada,
-            TipoFrete = demanda.TipoFreteEnum.ToString()
+            TipoFrete = demanda.TipoFreteEnum.ToString(),
+            Segmento = demanda.SegmentoEnum.ToString()
         };
     }
 }

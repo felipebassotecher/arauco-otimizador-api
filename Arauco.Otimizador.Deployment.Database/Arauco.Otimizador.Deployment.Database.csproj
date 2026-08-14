@@ -17,6 +17,7 @@
     <EmbeddedResource Include="Scripts\Script001 - Otimizador.sql" />
     <EmbeddedResource Include="Scripts\Script003 - Criterios.sql" />
     <EmbeddedResource Include="Scripts\Script004 - OtimizacaoResultado.sql" />
+    <EmbeddedResource Include="Scripts\Script005 - OtimizacaoV2.sql" />
   </ItemGroup>
 
   <ItemGroup>

@@ -11,4 +11,5 @@ public class DemandaResponse
     public decimal Volume { get; set; }
     public DateTime DataEntregaDesejada { get; set; }
     public string TipoFrete { get; set; }
+    public string Segmento { get; set; }
 }

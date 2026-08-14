@@ -126,6 +126,34 @@ public class UnitOfWork : IUnitOfWork
         }
     }
 
+    // OtimizadorV2
+    private IGenericRepository<Entities.OtimizadorV2.CenarioOtimizacaoV2Resultado> cenarioOtimizacaoV2ResultadoRepository;
+    public IGenericRepository<Entities.OtimizadorV2.CenarioOtimizacaoV2Resultado> CenarioOtimizacaoV2ResultadoRepository
+    {
+        get
+        {
+            return this.cenarioOtimizacaoV2ResultadoRepository ??= new GenericRepository<DbContext, Entities.OtimizadorV2.CenarioOtimizacaoV2Resultado>(context);
+        }
+    }
+
+    private IGenericRepository<Entities.OtimizadorV2.PedidoV2> pedidoV2Repository;
+    public IGenericRepository<Entities.OtimizadorV2.PedidoV2> PedidoV2Repository
+    {
+        get
+        {
+            return this.pedidoV2Repository ??= new GenericRepository<DbContext, Entities.OtimizadorV2.PedidoV2>(context);
+        }
+    }
+
+    private IGenericRepository<Entities.OtimizadorV2.PedidoV2NaoAlocado> pedidoV2NaoAlocadoRepository;
+    public IGenericRepository<Entities.OtimizadorV2.PedidoV2NaoAlocado> PedidoV2NaoAlocadoRepository
+    {
+        get
+        {
+            return this.pedidoV2NaoAlocadoRepository ??= new GenericRepository<DbContext, Entities.OtimizadorV2.PedidoV2NaoAlocado>(context);
+        }
+    }
+
     public async Task SaveAsync()
     {
         await context.SaveChangesAsync();

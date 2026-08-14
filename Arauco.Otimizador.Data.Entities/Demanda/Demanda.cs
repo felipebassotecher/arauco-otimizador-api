@@ -11,4 +11,5 @@ public class Demanda
     public decimal Volume { get; set; }
     public DateTime DataEntregaDesejada { get; set; }
     public TipoFreteEnum TipoFreteEnum { get; set; }
+    public SegmentoEnum SegmentoEnum { get; set; }
 }

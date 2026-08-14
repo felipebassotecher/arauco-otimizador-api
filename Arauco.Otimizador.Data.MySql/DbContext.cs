@@ -30,6 +30,11 @@ public class DbContext : Microsoft.EntityFrameworkCore.DbContext
     public DbSet<Entities.Otimizador.OtimizacaoOcupacao> OtimizacaoOcupacao { get; set; }
     public DbSet<Entities.Otimizador.OtimizacaoCriterio> OtimizacaoCriterio { get; set; }
 
+    // OtimizadorV2
+    public DbSet<Entities.OtimizadorV2.CenarioOtimizacaoV2Resultado> CenarioOtimizacaoV2Resultado { get; set; }
+    public DbSet<Entities.OtimizadorV2.PedidoV2> PedidoV2 { get; set; }
+    public DbSet<Entities.OtimizadorV2.PedidoV2NaoAlocado> PedidoV2NaoAlocado { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // Cartao
@@ -66,6 +71,7 @@ public class DbContext : Microsoft.EntityFrameworkCore.DbContext
             d.HasKey(x => x.DemandaId);
 
             d.Property(p => p.TipoFreteEnum).HasColumnName("TipoFreteId");
+            d.Property(p => p.SegmentoEnum).HasColumnName("SegmentoId");
         });
 
         // Pedido
@@ -105,6 +111,24 @@ public class DbContext : Microsoft.EntityFrameworkCore.DbContext
         modelBuilder.Entity<Entities.Otimizador.OtimizacaoCriterio>(c =>
         {
             c.HasKey(x => x.CriterioId);
+        });
+
+        // OtimizadorV2
+        modelBuilder.Entity<Entities.OtimizadorV2.CenarioOtimizacaoV2Resultado>(r =>
+        {
+            r.HasKey(x => x.ResultadoId);
+        });
+
+        modelBuilder.Entity<Entities.OtimizadorV2.PedidoV2>(p =>
+        {
+            p.HasKey(x => x.PedidoId);
+
+            p.Property(x => x.TipoFreteEnum).HasColumnName("TipoFreteId");
+        });
+
+        modelBuilder.Entity<Entities.OtimizadorV2.PedidoV2NaoAlocado>(n =>
+        {
+            n.HasKey(x => x.NaoAlocadoId);
         });
     }
 }

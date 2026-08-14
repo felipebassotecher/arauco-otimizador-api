@@ -26,5 +26,10 @@ public interface IUnitOfWork
     IGenericRepository<Otimizador.OtimizacaoOcupacao> OtimizacaoOcupacaoRepository { get; }
     IGenericRepository<Otimizador.OtimizacaoCriterio> OtimizacaoCriterioRepository { get; }
 
+    // OtimizadorV2
+    IGenericRepository<OtimizadorV2.CenarioOtimizacaoV2Resultado> CenarioOtimizacaoV2ResultadoRepository { get; }
+    IGenericRepository<OtimizadorV2.PedidoV2> PedidoV2Repository { get; }
+    IGenericRepository<OtimizadorV2.PedidoV2NaoAlocado> PedidoV2NaoAlocadoRepository { get; }
+
     Task SaveAsync();
 }
