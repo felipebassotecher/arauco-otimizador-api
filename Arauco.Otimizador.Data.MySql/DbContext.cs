@@ -24,16 +24,15 @@ public class DbContext : Microsoft.EntityFrameworkCore.DbContext
 
     // Otimizador
     public DbSet<Entities.Otimizador.CenarioOtimizacaoResultado> CenarioOtimizacaoResultado { get; set; }
-    public DbSet<Entities.Otimizador.OtimizacaoAlocacao> OtimizacaoAlocacao { get; set; }
-    public DbSet<Entities.Otimizador.OtimizacaoNaoAlocado> OtimizacaoNaoAlocado { get; set; }
-    public DbSet<Entities.Otimizador.OtimizacaoEmbarque> OtimizacaoEmbarque { get; set; }
-    public DbSet<Entities.Otimizador.OtimizacaoOcupacao> OtimizacaoOcupacao { get; set; }
-    public DbSet<Entities.Otimizador.OtimizacaoCriterio> OtimizacaoCriterio { get; set; }
+    public DbSet<Entities.Otimizador.PedidoOtimizado> PedidoOtimizado { get; set; }
+    public DbSet<Entities.Otimizador.PedidoOtimizadoNaoAlocado> PedidoOtimizadoNaoAlocado { get; set; }
 
-    // OtimizadorV2
-    public DbSet<Entities.OtimizadorV2.CenarioOtimizacaoV2Resultado> CenarioOtimizacaoV2Resultado { get; set; }
-    public DbSet<Entities.OtimizadorV2.PedidoV2> PedidoV2 { get; set; }
-    public DbSet<Entities.OtimizadorV2.PedidoV2NaoAlocado> PedidoV2NaoAlocado { get; set; }
+    // Dataset (master data consumida pelo motor de otimização)
+    public DbSet<Entities.Dataset.Centro> Centro { get; set; }
+    public DbSet<Entities.Dataset.Produto> Produto { get; set; }
+    public DbSet<Entities.Dataset.Elegibilidade> Elegibilidade { get; set; }
+    public DbSet<Entities.Dataset.Capacidade> Capacidade { get; set; }
+    public DbSet<Entities.Dataset.Carteira> Carteira { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -88,47 +87,42 @@ public class DbContext : Microsoft.EntityFrameworkCore.DbContext
             r.HasKey(x => x.ResultadoId);
         });
 
-        modelBuilder.Entity<Entities.Otimizador.OtimizacaoAlocacao>(a =>
-        {
-            a.HasKey(x => x.AlocacaoId);
-        });
-
-        modelBuilder.Entity<Entities.Otimizador.OtimizacaoNaoAlocado>(n =>
-        {
-            n.HasKey(x => x.NaoAlocadoId);
-        });
-
-        modelBuilder.Entity<Entities.Otimizador.OtimizacaoEmbarque>(e =>
-        {
-            e.HasKey(x => x.EmbarqueId);
-        });
-
-        modelBuilder.Entity<Entities.Otimizador.OtimizacaoOcupacao>(o =>
-        {
-            o.HasKey(x => x.OcupacaoId);
-        });
-
-        modelBuilder.Entity<Entities.Otimizador.OtimizacaoCriterio>(c =>
-        {
-            c.HasKey(x => x.CriterioId);
-        });
-
-        // OtimizadorV2
-        modelBuilder.Entity<Entities.OtimizadorV2.CenarioOtimizacaoV2Resultado>(r =>
-        {
-            r.HasKey(x => x.ResultadoId);
-        });
-
-        modelBuilder.Entity<Entities.OtimizadorV2.PedidoV2>(p =>
+        modelBuilder.Entity<Entities.Otimizador.PedidoOtimizado>(p =>
         {
             p.HasKey(x => x.PedidoId);
 
             p.Property(x => x.TipoFreteEnum).HasColumnName("TipoFreteId");
         });
 
-        modelBuilder.Entity<Entities.OtimizadorV2.PedidoV2NaoAlocado>(n =>
+        modelBuilder.Entity<Entities.Otimizador.PedidoOtimizadoNaoAlocado>(n =>
         {
             n.HasKey(x => x.NaoAlocadoId);
+        });
+
+        // Dataset
+        modelBuilder.Entity<Entities.Dataset.Centro>(c =>
+        {
+            c.HasKey(x => x.CentroId);
+        });
+
+        modelBuilder.Entity<Entities.Dataset.Produto>(p =>
+        {
+            p.HasKey(x => x.ProdutoId);
+        });
+
+        modelBuilder.Entity<Entities.Dataset.Elegibilidade>(e =>
+        {
+            e.HasKey(x => x.Id);
+        });
+
+        modelBuilder.Entity<Entities.Dataset.Capacidade>(c =>
+        {
+            c.HasKey(x => x.Id);
+        });
+
+        modelBuilder.Entity<Entities.Dataset.Carteira>(c =>
+        {
+            c.HasKey(x => x.CarteiraId);
         });
     }
 }

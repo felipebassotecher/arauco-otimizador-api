@@ -1,18 +1,14 @@
-using Arauco.Otimizador.Common.Domain.Enums.Demanda;
+namespace Arauco.Otimizador.Common.Domain.Models.Otimizador;
 
-namespace Arauco.Otimizador.Data.Entities.OtimizadorV2;
-
-public class PedidoV2
+public class PedidoOtimizadoResponse
 {
-    public string PedidoId { get; set; }
-    public string CenarioId { get; set; }
-    public string ResultadoId { get; set; }
+    public string Id { get; set; }
     public string Cliente { get; set; }
     public string Material { get; set; }
     public int LinhaProdutoId { get; set; }
     public int CentroId { get; set; }
     public string Centro { get; set; }
-    public TipoFreteEnum TipoFreteEnum { get; set; }
+    public string TipoFrete { get; set; }
     public decimal Volume { get; set; }
     public int Ano { get; set; }
     public int Semana { get; set; }

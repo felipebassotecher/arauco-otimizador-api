@@ -4,5 +4,7 @@ namespace Arauco.Otimizador.Common.Domain.Services.Otimizador;
 
 public interface IOtimizadorService
 {
-    Task<OtimizacaoResponse> OtimizarCenarioAsync(string cenarioId, OtimizacaoRequest? request);
+    Task<OtimizacaoResponse> OtimizarAsync(string cenarioId, OtimizacaoRequest? request);
+    Task<List<PedidoOtimizadoResponse>> ListarPedidosDaSemanaAsync(string cenarioId, int ano, int semana);
+    Task<PedidoOtimizadoResponse> MoverPedidoAsync(string cenarioId, MoverPedidoOtimizadoRequest model);
 }

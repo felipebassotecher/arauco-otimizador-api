@@ -7,7 +7,7 @@ public class OtimizacaoRequest
     public string? SemanaInicial { get; set; }
     public double? AlvoCapacidadeSobreDemanda { get; set; }
     public double? LimiteSegundos { get; set; }
-    public bool? CarretaAtiva { get; set; }
     public double? CarretaMinimoM3 { get; set; }
     public double? CarretaMaximoM3 { get; set; }
+    public int? LimiteRecebimentoCarretasPorSemana { get; set; }
 }

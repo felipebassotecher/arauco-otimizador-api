@@ -196,7 +196,7 @@ public class CenarioService : ServiceBase, ICenarioService
         await unitOfWork.SaveAsync();
     }
 
-    public async Task<CenarioDetalheResponse> ProcessarAsync(string cenarioId)
+    public async Task<ProcessarCenarioResponse> ProcessarAsync(string cenarioId)
     {
         var cenario = await _ObterCenarioAsync(cenarioId);
 
@@ -206,6 +206,8 @@ public class CenarioService : ServiceBase, ICenarioService
         // Sem demandas (arquivoNome nulo) não há o que processar (spec §2.2).
         if (string.IsNullOrEmpty(cenario.ArquivoNome))
             throw new ApiException("Cenário sem demandas carregadas");
+
+        var inicio = DateTime.UtcNow;
 
         var demandas = await unitOfWork.DemandaRepository.Where(d => d.CenarioId == cenarioId).ToListAsync();
 
@@ -245,7 +247,13 @@ public class CenarioService : ServiceBase, ICenarioService
 
         await unitOfWork.SaveAsync();
 
-        return await _MapDetalheAsync(cenario);
+        var tempoSegundos = (DateTime.UtcNow - inicio).TotalSeconds;
+
+        return new ProcessarCenarioResponse
+        {
+            Sucesso = true,
+            TempoSegundos = tempoSegundos
+        };
     }
 
     public async Task<CenarioMetricasResponse> ObterMetricasAsync(string cenarioId)

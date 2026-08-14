@@ -38,6 +38,10 @@ CREATE TABLE `Demanda` (
 	`Volume` DECIMAL(18,3) NOT NULL,
 	`DataEntregaDesejada` DATETIME NOT NULL,
 	`TipoFreteId` INT NOT NULL,
+	-- Segmento (INDUSTRIA/REVENDA), usado pelo critério personalizado "Tipo de Cliente" do motor de
+	-- otimização. Default 2 = Revenda, mesmo default que o parser de CSV já assume quando a coluna não
+	-- vem informada.
+	`SegmentoId` INT NOT NULL DEFAULT 2,
 	PRIMARY KEY (`DemandaId`),
 	KEY `IX_Demanda_CenarioId` (`CenarioId`),
 	CONSTRAINT `FK_Demanda_Cenario` FOREIGN KEY (`CenarioId`) REFERENCES `Cenario` (`CenarioId`)

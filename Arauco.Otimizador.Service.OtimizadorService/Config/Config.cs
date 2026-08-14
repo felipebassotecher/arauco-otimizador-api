@@ -1,5 +1,3 @@
-using Arauco.Otimizador.Service.OtimizadorService.Dados;
-
 namespace Arauco.Otimizador.Service.OtimizadorService;
 
 public sealed class Config
@@ -25,8 +23,6 @@ public sealed class Config
     public int ChapasPorLote { get; set; } = 40;
 
     public bool LoteMinimoEmChapas { get; set; } = true;
-
-    public ParametrosCarteira? CarteiraSintetica { get; set; }
 
     public Carreta Carreta { get; set; } = new();
 

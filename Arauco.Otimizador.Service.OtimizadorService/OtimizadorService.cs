@@ -1,14 +1,14 @@
+using Arauco.Otimizador.Common.Domain.Enums.Demanda;
 using Arauco.Otimizador.Common.Domain.Models.Otimizador;
 using Arauco.Otimizador.Common.Domain.Services.Otimizador;
 using Arauco.Otimizador.Data.Entities;
-using Arauco.Otimizador.Data.Entities.Cenario;
 using Arauco.Otimizador.Data.Entities.Otimizador;
 using Arauco.Otimizador.Service.Base;
+using Arauco.Otimizador.Service.OtimizadorService.Capacidade;
 using Arauco.Otimizador.Service.OtimizadorService.Dados;
 using Arauco.Otimizador.Service.OtimizadorService.Mapeamento;
 using Arauco.Otimizador.Service.OtimizadorService.Modelo;
 using Microsoft.EntityFrameworkCore;
-using System.Globalization;
 using Techer.Common.Domain.Exceptions;
 using Techer.Common.Domain.Interfaces;
 using Techer.Common.Id;
@@ -19,13 +19,12 @@ public class OtimizadorService : ServiceBase, IOtimizadorService
 {
     private readonly Executor _executor = new();
 
-    public OtimizadorService(
-        IUnitOfWork unitOfWork,
-        IEnvironmentVariables environmentVariables) : base(unitOfWork, environmentVariables)
+    public OtimizadorService(IUnitOfWork unitOfWork, IEnvironmentVariables environmentVariables)
+        : base(unitOfWork, environmentVariables)
     {
     }
 
-    public async Task<OtimizacaoResponse> OtimizarCenarioAsync(string cenarioId, OtimizacaoRequest? request)
+    public async Task<OtimizacaoResponse> OtimizarAsync(string cenarioId, OtimizacaoRequest? request)
     {
         var cenario = await unitOfWork.CenarioRepository
             .FirstOrDefaultAsync(c => c.CenarioId == cenarioId)
@@ -38,157 +37,201 @@ public class OtimizadorService : ServiceBase, IOtimizadorService
         if (demandas.Count == 0)
             throw new ApiException("Cenário sem demandas carregadas");
 
-        var pastaDatasets = ObterCaminhoDatasets();
-        var carregador = await _executor.CarregarAsync(pastaDatasets);
+        var criterios = await unitOfWork.CenarioCriterioRepository
+            .Where(c => c.CenarioId == cenarioId)
+            .ToListAsync();
+
+        var pinados = await unitOfWork.PedidoOtimizadoRepository
+            .Where(p => p.CenarioId == cenarioId && p.Pinado)
+            .ToListAsync();
+
+        var carregador = await _executor.CarregarAsync(unitOfWork);
 
         var carteira = DemandaParaCarteiraMapper.Mapear(demandas, carregador.Produtos, carregador.Elegibilidade);
         var dados = carregador.ComCarteira(carteira);
 
         var config = CriarConfig(request);
+        var notas = new List<string>(dados.Notas);
 
-        var execucao = _executor.Executar(dados, config);
+        var bruta = ProvedorCapacidade.MontarBruta(config, dados.Capacidade, dados.ParesElegiveis, notas);
+        var prep = Preparador.Preparar(dados, bruta.Pares, config, notas);
+
+        var demandaPorLinha = prep.Itens
+            .GroupBy(i => i.LinhaProdutoId)
+            .ToDictionary(g => g.Key, g => g.Sum(i => i.VolumeM3));
+        var capacidade = ProvedorCapacidade.Aplicar(config, bruta, demandaPorLinha, notas);
+
+        var (itensAjustados, capacidadeAjustada, volumePinadoTotal) = DescontarPinados(prep.Itens, capacidade, pinados, notas);
+
+        var resultadoOtimizacao = Otimizacao.Resolver(config, itensAjustados, capacidadeAjustada, criterios, notas);
 
         var resultadoId = await IdGenerator.New();
+        var geradoEm = DateTime.UtcNow;
+
+        var alocadoNovo = resultadoOtimizacao.Alocacoes.Sum(a => a.VolumeM3);
+        var naoAlocadoNovo = resultadoOtimizacao.NaoAlocadoPorItem.Values.Sum();
+
         var resultado = new CenarioOtimizacaoResultado
         {
             ResultadoId = resultadoId,
             CenarioId = cenarioId,
-            StatusSolver = execucao.Solver.Status,
-            Segundos = execucao.Solver.Segundos,
-            Objetivo = execucao.Solver.Objetivo,
-            Variaveis = execucao.Solver.Variaveis,
-            Binarias = execucao.Solver.Binarias,
-            GreedyInicialM3 = (decimal)execucao.Solver.GreedyInicialM3,
-            GeradoEm = execucao.GeradoEm,
-            FatorCapacidade = (decimal)execucao.Resumo.FatorCapacidade,
-            CapacidadeTotal = execucao.Resumo.CapacidadeTotal,
-            DemandaTotalM3 = (decimal)execucao.Resumo.DemandaTotalM3,
-            DemandaElegivelM3 = (decimal)execucao.Resumo.DemandaElegivelM3,
-            ExcluidoPreflightM3 = (decimal)execucao.Resumo.ExcluidoPreflightM3,
-            AlocadoM3 = (decimal)execucao.Resumo.AlocadoM3,
-            NaoAlocadoM3 = (decimal)execucao.Resumo.NaoAlocadoM3,
-            PercentualAlocado = (decimal)execucao.Resumo.PercentualAlocado,
-            Itens = execucao.Resumo.Itens,
-            ItensExcluidos = execucao.Resumo.ItensExcluidos
+            GeradoEm = geradoEm,
+            StatusSolver = resultadoOtimizacao.Status,
+            Segundos = resultadoOtimizacao.Segundos,
+            Objetivo = resultadoOtimizacao.Objetivo,
+            Variaveis = resultadoOtimizacao.Variaveis,
+            Binarias = resultadoOtimizacao.Binarias,
+            CapacidadeTotal = capacidadeAjustada.Total,
+            DemandaTotalM3 = (decimal)prep.DemandaTotalM3,
+            DemandaElegivelM3 = (decimal)prep.DemandaElegivelM3,
+            AlocadoM3 = (decimal)(alocadoNovo + volumePinadoTotal),
+            NaoAlocadoM3 = (decimal)naoAlocadoNovo,
+            Itens = prep.Itens.Count,
+            ItensExcluidos = prep.Excluidos.Count
         };
-
         unitOfWork.CenarioOtimizacaoResultadoRepository.Add(resultado);
 
-        var alocacoes = new List<OtimizacaoAlocacao>();
-        foreach (var a in execucao.Alocacoes)
+        // Pedidos fixados manualmente (pinado = true) permanecem intactos numa nova execução — mesmo
+        // contrato que CenarioService.ProcessarAsync já usa para Pedido.Pinado.
+        var pedidosGerados = await unitOfWork.PedidoOtimizadoRepository
+            .Where(p => p.CenarioId == cenarioId && !p.Pinado)
+            .ToListAsync();
+        unitOfWork.PedidoOtimizadoRepository.RemoveRange(pedidosGerados);
+
+        var itensPorIndice = itensAjustados.ToDictionary(i => i.Indice);
+        var novosPedidos = new List<PedidoOtimizado>();
+
+        foreach (var a in resultadoOtimizacao.Alocacoes)
         {
-            var semana = SemanaIso.Parse(a.Semana);
-            alocacoes.Add(new OtimizacaoAlocacao
+            var item = itensPorIndice[a.ItemIndice];
+            var semana = capacidadeAjustada.Semanas[a.IndiceSemana];
+            var centroNome = dados.Centros.FirstOrDefault(c => c.CentroId == a.CentroId)?.Nome ?? a.CentroId.ToString();
+
+            novosPedidos.Add(new PedidoOtimizado
             {
-                AlocacaoId = await IdGenerator.New(12),
+                PedidoId = await IdGenerator.New(12),
+                CenarioId = cenarioId,
                 ResultadoId = resultadoId,
-                Cliente = a.ClienteId,
-                Produto = a.ProdutoId,
-                LinhaProdutoId = a.LinhaProdutoId,
+                Cliente = item.ClienteId,
+                Material = item.ProdutoId,
+                LinhaProdutoId = item.LinhaProdutoId,
                 CentroId = a.CentroId,
-                Centro = a.Centro,
+                Centro = centroNome,
+                TipoFreteEnum = item.Cif ? TipoFreteEnum.CIF : TipoFreteEnum.FOB,
+                Volume = (decimal)a.VolumeM3,
                 Ano = semana.Ano,
                 Semana = semana.Numero,
-                VolumeM3 = (decimal)a.VolumeM3,
-                Cif = a.Cif,
-                Prioridade = a.Prioridade,
-                MotivoSemana = a.MotivoSemana,
-                MotivoPlanta = a.MotivoPlanta,
-                FolgaAntesM3 = (decimal)a.FolgaAntesM3,
-                PlantasElegiveis = a.PlantasElegiveis,
-                PosicaoPrioridade = a.PosicaoPrioridade
+                Pinado = false,
+                ScorePeso = a.ScorePeso
             });
         }
-        unitOfWork.OtimizacaoAlocacaoRepository.AddRange(alocacoes);
+        unitOfWork.PedidoOtimizadoRepository.AddRange(novosPedidos);
 
-        var naoAlocados = new List<OtimizacaoNaoAlocado>();
-        foreach (var n in execucao.NaoAlocado)
+        var naoAlocados = new List<PedidoOtimizadoNaoAlocado>();
+        foreach (var (indice, volume) in resultadoOtimizacao.NaoAlocadoPorItem)
         {
-            naoAlocados.Add(new OtimizacaoNaoAlocado
+            var item = itensPorIndice[indice];
+            naoAlocados.Add(new PedidoOtimizadoNaoAlocado
             {
                 NaoAlocadoId = await IdGenerator.New(12),
                 ResultadoId = resultadoId,
-                Cliente = n.ClienteId,
-                Produto = n.ProdutoId,
-                LinhaProdutoId = n.LinhaProdutoId,
-                VolumeM3 = (decimal)n.VolumeM3,
-                DemandaM3 = (decimal)n.DemandaM3,
-                Prioridade = n.Prioridade,
-                Motivo = n.Motivo,
-                MaiorFolgaM3 = (decimal)n.MaiorFolgaM3,
-                PisoM3 = (decimal)n.PisoM3
+                Cliente = item.ClienteId,
+                Material = item.ProdutoId,
+                LinhaProdutoId = item.LinhaProdutoId,
+                VolumeM3 = (decimal)volume,
+                Motivo = "sem capacidade suficiente no horizonte para o volume restante"
             });
         }
-        unitOfWork.OtimizacaoNaoAlocadoRepository.AddRange(naoAlocados);
-
-        var embarques = new List<OtimizacaoEmbarque>();
-        foreach (var e in execucao.Carretas.Maiores)
-        {
-            var semana = SemanaIso.Parse(e.Semana);
-            embarques.Add(new OtimizacaoEmbarque
-            {
-                EmbarqueId = await IdGenerator.New(),
-                ResultadoId = resultadoId,
-                Cliente = e.ClienteId,
-                CentroId = e.CentroId,
-                Centro = e.Centro,
-                Ano = semana.Ano,
-                Semana = semana.Numero,
-                Carretas = e.Carretas,
-                VolumeM3 = (decimal)e.VolumeM3,
-                OcupacaoMedia = (decimal)e.OcupacaoMedia
-            });
-        }
-        unitOfWork.OtimizacaoEmbarqueRepository.AddRange(embarques);
-
-        var ocupacoes = new List<OtimizacaoOcupacao>();
-        foreach (var o in execucao.Ocupacao)
-        {
-            var semana = SemanaIso.Parse(o.Semana);
-            ocupacoes.Add(new OtimizacaoOcupacao
-            {
-                OcupacaoId = await IdGenerator.New(12),
-                ResultadoId = resultadoId,
-                CentroId = o.CentroId,
-                Centro = o.Centro,
-                Ano = semana.Ano,
-                Semana = semana.Numero,
-                AlocadoM3 = (decimal)o.AlocadoM3,
-                CapacidadeM3 = (decimal)o.CapacidadeM3
-            });
-        }
-        unitOfWork.OtimizacaoOcupacaoRepository.AddRange(ocupacoes);
-
-        var criterios = new List<OtimizacaoCriterio>();
-        foreach (var c in execucao.Criterios)
-        {
-            criterios.Add(new OtimizacaoCriterio
-            {
-                CriterioId = await IdGenerator.New(),
-                ResultadoId = resultadoId,
-                Nome = c.Nome,
-                Descricao = c.Descricao,
-                Ordem = c.Ordem,
-                Peso = c.Peso,
-                Valor = (decimal)c.Valor
-            });
-        }
-        unitOfWork.OtimizacaoCriterioRepository.AddRange(criterios);
+        unitOfWork.PedidoOtimizadoNaoAlocadoRepository.AddRange(naoAlocados);
 
         await unitOfWork.SaveAsync();
 
-        return MapearResponse(execucao, resultadoId);
+        cenario.DataUltimoProcessamento = geradoEm;
+        await unitOfWork.SaveAsync();
+
+        return MapearResponse(resultado, resultadoOtimizacao, capacidadeAjustada, dados, itensPorIndice, notas, pinados, alocadoNovo, naoAlocadoNovo, novosPedidos);
     }
 
-    private string ObterCaminhoDatasets()
+    public async Task<List<PedidoOtimizadoResponse>> ListarPedidosDaSemanaAsync(string cenarioId, int ano, int semana)
     {
-        var configurado = environmentVariables["Otimizador:DatasetsPath"];
-        if (!string.IsNullOrWhiteSpace(configurado))
-            return Path.GetFullPath(configurado);
+        if (!await unitOfWork.CenarioRepository.AnyAsync(c => c.CenarioId == cenarioId))
+            throw new NotFoundException("Cenário não encontrado");
 
-        var baseDir = AppContext.BaseDirectory;
-        var padrao = Path.Combine(baseDir, "..", "..", "..", "..", "Data", "Datasets");
-        return Path.GetFullPath(padrao);
+        var pedidos = await unitOfWork.PedidoOtimizadoRepository
+            .Where(p => p.CenarioId == cenarioId && p.Ano == ano && p.Semana == semana)
+            .ToListAsync();
+
+        return pedidos.Select(MapearPedido).ToList();
+    }
+
+    public async Task<PedidoOtimizadoResponse> MoverPedidoAsync(string cenarioId, MoverPedidoOtimizadoRequest model)
+    {
+        var pedido = await unitOfWork.PedidoOtimizadoRepository
+            .FirstOrDefaultAsync(p => p.PedidoId == model.PedidoId && p.CenarioId == cenarioId)
+            ?? throw new NotFoundException("Pedido não encontrado");
+
+        pedido.Ano = model.AnoDestino;
+        pedido.Semana = model.SemanaDestino;
+        pedido.Pinado = true;
+
+        await unitOfWork.SaveAsync();
+
+        return MapearPedido(pedido);
+    }
+
+    // Desconta o volume já pinado do item (cliente+produto) e da capacidade do bucket (centro, linha
+    // produto, semana) correspondente, para que o solver nunca re-otimize nem estoure capacidade já
+    // comprometida por um pedido fixado manualmente numa execução anterior.
+    private static (List<Item> Itens, CapacidadeHorizonte Capacidade, double VolumePinadoTotal) DescontarPinados(
+        IReadOnlyList<Item> itens, CapacidadeHorizonte capacidade, List<PedidoOtimizado> pinados, List<string> notas)
+    {
+        if (pinados.Count == 0)
+            return (itens.ToList(), capacidade, 0);
+
+        var pinadoPorItem = pinados
+            .GroupBy(p => (p.Cliente, p.Material))
+            .ToDictionary(g => g.Key, g => g.Sum(p => (double)p.Volume));
+
+        var itensAjustados = itens
+            .Select(item =>
+            {
+                var pinadoVolume = pinadoPorItem.GetValueOrDefault((item.ClienteId, item.ProdutoId), 0);
+                var restante = Math.Max(0, item.VolumeM3 - pinadoVolume);
+                return item with { VolumeM3 = restante };
+            })
+            .ToList();
+
+        var indicePorSemana = capacidade.Semanas
+            .Select((s, idx) => (s, idx))
+            .ToDictionary(t => (t.s.Ano, t.s.Numero), t => t.idx);
+
+        var consumoPorBucket = new Dictionary<(int Centro, int LinhaProduto, int IndiceSemana), long>();
+        var foraDoHorizonte = 0;
+
+        foreach (var p in pinados)
+        {
+            if (!indicePorSemana.TryGetValue((p.Ano, p.Semana), out var indiceSemana))
+            {
+                foraDoHorizonte++;
+                continue;
+            }
+
+            var chave = (p.CentroId, p.LinhaProdutoId, indiceSemana);
+            consumoPorBucket[chave] = consumoPorBucket.GetValueOrDefault(chave) + (long)Math.Round(p.Volume);
+        }
+
+        var novoPorBucket = new Dictionary<(int, int, int), long>(capacidade.PorBucket);
+        foreach (var (chave, consumido) in consumoPorBucket)
+            novoPorBucket[chave] = Math.Max(0, novoPorBucket.GetValueOrDefault(chave, 0) - consumido);
+
+        var volumePinadoTotal = pinados.Sum(p => (double)p.Volume);
+
+        notas.Add($"pinning: {pinados.Count} pedido(s) fixado(s) de execução(ões) anterior(es) "
+                  + $"({volumePinadoTotal:N2} m3) descontados da demanda e da capacidade antes de "
+                  + $"otimizar o restante"
+                  + (foraDoHorizonte > 0 ? $" — {foraDoHorizonte} fixado(s) fora do horizonte atual, mantido(s) sem afetar capacidade" : ""));
+
+        return (itensAjustados, capacidade with { PorBucket = novoPorBucket }, volumePinadoTotal);
     }
 
     private static Config CriarConfig(OtimizacaoRequest? request)
@@ -202,98 +245,102 @@ public class OtimizadorService : ServiceBase, IOtimizadorService
         if (!string.IsNullOrWhiteSpace(request.SemanaInicial)) config.SemanaInicial = request.SemanaInicial;
         if (request.AlvoCapacidadeSobreDemanda.HasValue) config.AlvoCapacidadeSobreDemanda = request.AlvoCapacidadeSobreDemanda.Value;
         if (request.LimiteSegundos.HasValue) config.LimiteSegundos = request.LimiteSegundos.Value;
-        if (request.CarretaAtiva.HasValue) config.Carreta.Ativa = request.CarretaAtiva.Value;
         if (request.CarretaMinimoM3.HasValue) config.Carreta.MinimoM3 = request.CarretaMinimoM3.Value;
         if (request.CarretaMaximoM3.HasValue) config.Carreta.MaximoM3 = request.CarretaMaximoM3.Value;
+        if (request.LimiteRecebimentoCarretasPorSemana.HasValue)
+        {
+            config.LimiteRecebimento.Ativo = true;
+            config.LimiteRecebimento.CarretasPorSemana = request.LimiteRecebimentoCarretasPorSemana.Value;
+        }
 
         return config;
     }
 
-    private static OtimizacaoResponse MapearResponse(ExecucaoDto execucao, string resultadoId)
+    private static OtimizacaoResponse MapearResponse(
+        CenarioOtimizacaoResultado resultado,
+        ResultadoOtimizacao resultadoOtimizacao,
+        CapacidadeHorizonte capacidade,
+        Carregador dados,
+        Dictionary<int, Item> itensPorIndice,
+        List<string> notas,
+        List<PedidoOtimizado> pinados,
+        double alocadoNovo,
+        double naoAlocadoNovo,
+        List<PedidoOtimizado> novosPedidos)
     {
+        var demandaElegivel = (double)resultado.DemandaElegivelM3;
+        var alocadoTotal = alocadoNovo + pinados.Sum(p => (double)p.Volume);
+
         return new OtimizacaoResponse
         {
-            ResultadoId = resultadoId,
-            GeradoEm = execucao.GeradoEm,
-            Horizonte = execucao.Horizonte,
+            ResultadoId = resultado.ResultadoId,
+            GeradoEm = resultado.GeradoEm,
+            Horizonte = capacidade.Semanas.Select(s => s.ToString()).ToList(),
             Solver = new OtimizacaoSolverResponse
             {
-                Status = execucao.Solver.Status,
-                Segundos = execucao.Solver.Segundos,
-                Objetivo = execucao.Solver.Objetivo,
-                Variaveis = execucao.Solver.Variaveis,
-                Binarias = execucao.Solver.Binarias,
-                GreedyInicialM3 = execucao.Solver.GreedyInicialM3
+                Status = resultadoOtimizacao.Status,
+                Segundos = Math.Round(resultadoOtimizacao.Segundos, 3),
+                Objetivo = resultadoOtimizacao.Objetivo,
+                Variaveis = resultadoOtimizacao.Variaveis,
+                Binarias = resultadoOtimizacao.Binarias
             },
             Resumo = new OtimizacaoResumoResponse
             {
-                DemandaTotalM3 = execucao.Resumo.DemandaTotalM3,
-                DemandaElegivelM3 = execucao.Resumo.DemandaElegivelM3,
-                ExcluidoPreflightM3 = execucao.Resumo.ExcluidoPreflightM3,
-                AlocadoM3 = execucao.Resumo.AlocadoM3,
-                NaoAlocadoM3 = execucao.Resumo.NaoAlocadoM3,
-                CapacidadeTotal = execucao.Resumo.CapacidadeTotal,
-                FatorCapacidade = execucao.Resumo.FatorCapacidade,
-                PercentualAlocado = execucao.Resumo.PercentualAlocado,
-                Itens = execucao.Resumo.Itens,
-                ItensExcluidos = execucao.Resumo.ItensExcluidos
+                DemandaTotalM3 = (double)resultado.DemandaTotalM3,
+                DemandaElegivelM3 = demandaElegivel,
+                AlocadoM3 = Math.Round(alocadoTotal, 2),
+                NaoAlocadoM3 = Math.Round(naoAlocadoNovo, 2),
+                CapacidadeTotal = resultado.CapacidadeTotal,
+                PercentualAlocado = demandaElegivel > 0 ? Math.Round(alocadoTotal / demandaElegivel, 4) : 0,
+                Itens = resultado.Itens,
+                ItensExcluidos = resultado.ItensExcluidos
             },
-            Ocupacao = execucao.Ocupacao.Select(o => new OtimizacaoOcupacaoResponse
+            Alocacoes = novosPedidos.Select(p => new OtimizacaoAlocacaoResponse
             {
-                CentroId = o.CentroId,
-                Centro = o.Centro,
-                Semana = o.Semana,
-                AlocadoM3 = o.AlocadoM3,
-                CapacidadeM3 = o.CapacidadeM3
+                Cliente = p.Cliente,
+                Material = p.Material,
+                LinhaProdutoId = p.LinhaProdutoId,
+                CentroId = p.CentroId,
+                Centro = p.Centro,
+                TipoFrete = p.TipoFreteEnum.ToString(),
+                Volume = (double)p.Volume,
+                Ano = p.Ano,
+                Semana = p.Semana,
+                Pinado = false,
+                ScorePeso = p.ScorePeso
             }).ToList(),
-            Alocacoes = execucao.Alocacoes.Select(a => new OtimizacaoAlocacaoResponse
+            NaoAlocado = resultadoOtimizacao.NaoAlocadoPorItem.Select(kv =>
             {
-                Cliente = a.ClienteId,
-                Produto = a.ProdutoId,
-                LinhaProdutoId = a.LinhaProdutoId,
-                CentroId = a.CentroId,
-                Centro = a.Centro,
-                Semana = a.Semana,
-                VolumeM3 = a.VolumeM3,
-                Cif = a.Cif,
-                Prioridade = a.Prioridade,
-                MotivoSemana = a.MotivoSemana,
-                MotivoPlanta = a.MotivoPlanta,
-                FolgaAntesM3 = a.FolgaAntesM3,
-                PlantasElegiveis = a.PlantasElegiveis,
-                PosicaoPrioridade = a.PosicaoPrioridade
-            }).ToList(),
-            NaoAlocado = execucao.NaoAlocado.Select(n => new OtimizacaoNaoAlocadoResponse
-            {
-                Cliente = n.ClienteId,
-                Produto = n.ProdutoId,
-                LinhaProdutoId = n.LinhaProdutoId,
-                VolumeM3 = n.VolumeM3,
-                DemandaM3 = n.DemandaM3,
-                Prioridade = n.Prioridade,
-                Motivo = n.Motivo,
-                MaiorFolgaM3 = n.MaiorFolgaM3,
-                PisoM3 = n.PisoM3
+                var item = itensPorIndice[kv.Key];
+                return new OtimizacaoNaoAlocadoResponse
+                {
+                    Cliente = item.ClienteId,
+                    Material = item.ProdutoId,
+                    LinhaProdutoId = item.LinhaProdutoId,
+                    VolumeM3 = Math.Round(kv.Value, 2),
+                    Motivo = "sem capacidade suficiente no horizonte para o volume restante"
+                };
             }).OrderByDescending(n => n.VolumeM3).ToList(),
-            Embarques = execucao.Carretas.Maiores.Select(e => new OtimizacaoEmbarqueResponse
-            {
-                Cliente = e.ClienteId,
-                CentroId = e.CentroId,
-                Centro = e.Centro,
-                Semana = e.Semana,
-                Carretas = e.Carretas,
-                VolumeM3 = e.VolumeM3,
-                OcupacaoMedia = e.OcupacaoMedia
-            }).ToList(),
-            Criterios = execucao.Criterios.Select(c => new OtimizacaoCriterioResponse
-            {
-                Nome = c.Nome,
-                Descricao = c.Descricao,
-                Ordem = c.Ordem,
-                Peso = c.Peso,
-                Valor = c.Valor
-            }).ToList(),
-            Notas = execucao.Notas.ToList()
+            Notas = notas
+        };
+    }
+
+    private static PedidoOtimizadoResponse MapearPedido(PedidoOtimizado pedido)
+    {
+        return new PedidoOtimizadoResponse
+        {
+            Id = pedido.PedidoId,
+            Cliente = pedido.Cliente,
+            Material = pedido.Material,
+            LinhaProdutoId = pedido.LinhaProdutoId,
+            CentroId = pedido.CentroId,
+            Centro = pedido.Centro,
+            TipoFrete = pedido.TipoFreteEnum.ToString(),
+            Volume = pedido.Volume,
+            Ano = pedido.Ano,
+            Semana = pedido.Semana,
+            Pinado = pedido.Pinado,
+            ScorePeso = pedido.ScorePeso
         };
     }
 }

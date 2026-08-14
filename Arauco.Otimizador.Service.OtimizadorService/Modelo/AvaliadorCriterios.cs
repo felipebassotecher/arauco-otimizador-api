@@ -3,7 +3,7 @@ using Arauco.Otimizador.Common.Domain.Util;
 using Arauco.Otimizador.Data.Entities.Cenario;
 using Arauco.Otimizador.Service.OtimizadorService.Dados;
 
-namespace Arauco.Otimizador.Service.OtimizadorV2Service.CriteriosV2;
+namespace Arauco.Otimizador.Service.OtimizadorService.Modelo;
 
 // Converte os critérios personalizados do cenário (CenarioCriterio: chave + operador + valor + peso,
 // persistidos via CriteriosDisponiveis — spec §3.9) em um score por item (cliente+produto), somando o
@@ -40,10 +40,10 @@ public static class AvaliadorCriterios
         };
     }
 
-    // Item (Modelo/Preparacao.cs do V1) já resolve o Incoterm/Segmento representativo do grupo
-    // cliente+produto em Cif/Industria (booleanos) — reaproveita essa resolução em vez de reler a
-    // Demanda bruta, mantendo o mesmo critério de desempate que o pré-flight do V1 já usa para grupos
-    // com linhas mistas (spec: adota a primeira linha não vazia).
+    // Item (Modelo/Preparacao.cs) já resolve o Incoterm/Segmento representativo do grupo cliente+produto
+    // em Cif/Industria (booleanos) — reaproveita essa resolução em vez de reler a Demanda bruta, mantendo
+    // o mesmo critério de desempate que o pré-flight já usa para grupos com linhas mistas (spec: adota a
+    // primeira linha não vazia).
     private static string? ObterValorCampo(Item item, CriterioChaveEnum chave) => chave switch
     {
         CriterioChaveEnum.TipoFrete => item.Cif ? "CIF" : "FOB",

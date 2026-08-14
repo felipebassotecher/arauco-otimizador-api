@@ -20,16 +20,15 @@ public interface IUnitOfWork
 
     // Otimizador
     IGenericRepository<Otimizador.CenarioOtimizacaoResultado> CenarioOtimizacaoResultadoRepository { get; }
-    IGenericRepository<Otimizador.OtimizacaoAlocacao> OtimizacaoAlocacaoRepository { get; }
-    IGenericRepository<Otimizador.OtimizacaoNaoAlocado> OtimizacaoNaoAlocadoRepository { get; }
-    IGenericRepository<Otimizador.OtimizacaoEmbarque> OtimizacaoEmbarqueRepository { get; }
-    IGenericRepository<Otimizador.OtimizacaoOcupacao> OtimizacaoOcupacaoRepository { get; }
-    IGenericRepository<Otimizador.OtimizacaoCriterio> OtimizacaoCriterioRepository { get; }
+    IGenericRepository<Otimizador.PedidoOtimizado> PedidoOtimizadoRepository { get; }
+    IGenericRepository<Otimizador.PedidoOtimizadoNaoAlocado> PedidoOtimizadoNaoAlocadoRepository { get; }
 
-    // OtimizadorV2
-    IGenericRepository<OtimizadorV2.CenarioOtimizacaoV2Resultado> CenarioOtimizacaoV2ResultadoRepository { get; }
-    IGenericRepository<OtimizadorV2.PedidoV2> PedidoV2Repository { get; }
-    IGenericRepository<OtimizadorV2.PedidoV2NaoAlocado> PedidoV2NaoAlocadoRepository { get; }
+    // Dataset (master data consumida pelo motor de otimização — ver Data.Entities/Dataset)
+    IGenericRepository<Dataset.Centro> CentroRepository { get; }
+    IGenericRepository<Dataset.Produto> ProdutoRepository { get; }
+    IGenericRepository<Dataset.Elegibilidade> ElegibilidadeRepository { get; }
+    IGenericRepository<Dataset.Capacidade> CapacidadeRepository { get; }
+    IGenericRepository<Dataset.Carteira> CarteiraRepository { get; }
 
     Task SaveAsync();
 }

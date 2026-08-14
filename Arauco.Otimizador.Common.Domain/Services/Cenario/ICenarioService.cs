@@ -14,7 +14,7 @@ public interface ICenarioService
     Task<CenarioDetalheResponse> UploadArquivoAsync(string cenarioId, string nomeArquivo, Stream conteudo);
     Task<(string Nome, string Conteudo)> DownloadArquivoAsync(string cenarioId);
     Task RemoverAsync(string cenarioId);
-    Task<CenarioDetalheResponse> ProcessarAsync(string cenarioId);
+    Task<ProcessarCenarioResponse> ProcessarAsync(string cenarioId);
     Task<CenarioMetricasResponse> ObterMetricasAsync(string cenarioId);
     Task<List<PedidoResponse>> ListarPedidosDaSemanaAsync(string cenarioId, int ano, int semana);
     Task<PedidoResponse> MoverPedidoAsync(string cenarioId, MoverPedidoRequest model);

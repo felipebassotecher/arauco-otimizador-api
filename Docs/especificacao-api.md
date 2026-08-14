@@ -1,28 +1,48 @@
 # Especificação da API — Arauco Otimizador de Pedidos
 
-> Documento gerado a partir da análise dos serviços, modelos de domínio e mock APIs do front-end Angular.  
-> Objetivo: servir de base para a implementação da camada de API real que substituirá as chamadas mockadas (`src/app/mock-api`).
+> Referência completa dos endpoints da API hoje implementada (`arauco-otimizador-api`), gerada a
+> partir do código-fonte (controllers, modelos de domínio, entidades) após a unificação do motor de
+> otimização em uma única versão. Objetivo: dar ao time de front-end (`arauco-otimizador-pedidos-app`)
+> uma base precisa para planejar os ajustes necessários — a API mudou desde a última integração (ver
+> §6 "Impacto no front-end atual").
 
 ---
 
 ## 1. Visão geral
 
 - **Base URL padrão**: configurada em `src/environments/environment.ts` via `api.baseUrl`.
-  - Dev/Test: `https://api.dev.otimizador-pedidos.arauco.app.br`
-  - Prod: `https://api.otimizador-pedidos.arauco.app.br`
 - **Prefixos de módulo** (definidos em `environment.api`):
-  - `auth`: `/auth`
   - `conta`: `/conta`
-  - `cenarios`: `/cenarios`
+  - `cenarios`: `/cenarios` (inclui o motor de otimização, ver §2.3)
   - `demandas`: `/demandas`
-- **Autenticação**: JWT Bearer. O `authInterceptor` injeta o token de acesso do Cognito no header `Authorization: Bearer <token>` em todas as requisições que não sejam assets.
+  - `auth`: `/auth` — existe no `environment.api` do front, mas **não há endpoint correspondente na
+    API hoje**; a autenticação é feita direto contra o Cognito via AWS Amplify (`cognito.service.ts`),
+    não por um `AuthController`.
+- **Autenticação**: JWT Bearer. O `authInterceptor` do front injeta o token de acesso do Cognito no
+  header `Authorization: Bearer <token>` em todas as requisições que não sejam assets.
 - **Formato de data**: `Date`/`ISO 8601` (o front trata como objetos `Date` do JavaScript).
 - **Idioma**: português (pt-BR) nas mensagens de erro e labels.
-- **Padrão de IDs**: todos os identificadores são do tipo `string`, no formato alfanumérico uppercase de 6 caracteres, por exemplo: `ABC123`, `A1B2C3`, `X9Y8Z7`.
-- **Sufixos de modelos**:
-  - `*Request`: modelo enviado do front-end para o back-end.
-  - `*Response`: modelo retornado do back-end para o front-end.
-- **Critérios de otimização**: não existe cadastro global de critérios (não há `ParametrosController`/`CriteriosController`/`/parametros`). Os critérios disponíveis e seu tipo de dado (`TipoCriterioEnum`: `string` ou `numerico`) são definidos a nível de código. O que o usuário configura, por cenário, é uma **lista de regras** — cada uma combinando um critério + operador (`OperadorCriterioEnum`) + valor de comparação + peso (-100 a 100) —, enviada em `POST /cenarios` no campo `criterios`. O mesmo critério pode aparecer mais de uma vez na lista. Hoje existe um único critério implementado, "Tipo de Frete" (tipo `string`). Ver 2.2 e 3.4/3.9/3.10.
+- **Padrão de IDs**: identificadores são `string`, alfanumérico uppercase de 6 caracteres (ex.:
+  `ABC123`, `A1B2C3`, `X9Y8Z7`) — exceto os IDs internos das listas `alocacoes`/`naoAlocado` do motor
+  de otimização (não persistidos no momento da resposta, ver §3.20/§3.21).
+- **Sufixos de modelos**: `*Request` (front → back), `*Response` (back → front) — um modelo por
+  operação, nunca um modelo genérico reaproveitado entre list/get/criar/atualizar.
+- **Critérios de otimização**: não existe cadastro global de critérios (sem `ParametrosController`/
+  `CriteriosController`/`/parametros`). Os critérios disponíveis e seu tipo de dado (`TipoCriterioEnum`)
+  são fixos em código. O que o usuário configura, por cenário, é uma **lista de regras** — critério +
+  operador (`OperadorCriterioEnum`) + valor + peso —, enviada em `POST`/`PUT /cenarios` no campo
+  `criterios`. O mesmo critério pode se repetir na lista. **Hoje existem 2 critérios**: "Tipo de Frete"
+  e "Tipo de Cliente" (ver §2.2 e §3.1/3.9/3.10).
+- **Motor de otimização**: um segundo mecanismo de geração de pedidos, além do processamento simples
+  (`POST /cenarios/{id}/processar`) — roda um solver CP-SAT considerando os critérios do cenário e
+  produz pedidos numa granularidade mais fina (cliente + produto + planta + semana). Endpoints
+  próprios sob `/cenarios/{id}/otimizar...` — ver §2.3. As duas coisas coexistem: `processar` continua
+  existindo e gerando `Pedido`/`PedidoResponse` como sempre gerou.
+- **Health check**: `GET /check` (sem prefixo, `DefaultController`) — retorna `200 OK` vazio, uso de
+  infraestrutura/monitoramento, sem necessidade de consumo pelo front.
+- **Módulo fora deste produto**: o código-fonte também tem um `CartaoController` (`/cartao`) —
+  mantido de propósito como exemplo de referência da arquitetura-base do repositório, **não faz parte
+  do domínio "Otimizador de Pedidos"** e não deve ser integrado por este front-end.
 
 ---
 
@@ -46,71 +66,96 @@ Usado para obter o perfil do usuário autenticado.
 }
 ```
 
-> O front consome esse endpoint em `AuthService._loadProfile()` (`src/app/core/auth/auth.service.ts`).
+> Consumido em `AuthService._loadProfile()` (`src/app/core/auth/auth.service.ts`).
 
 ---
 
 ### 2.2 `CenariosController` — prefixo `/cenarios`
 
-Controller principal do domínio de otimização.
+Controller principal do domínio: CRUD de cenário, upload/download de demandas via CSV, e o
+processamento simples (agrupamento por cliente+semana).
 
 | Método | Endpoint | Descrição | Request | Response |
 |---|---|---|---|---|
 | GET | `/cenarios` | Lista todos os cenários. | — | `CenarioListaResponse[]` |
 | GET | `/cenarios/criterios-disponiveis` | Lista os critérios disponíveis (lista fixa em código) — usada pelo front para montar os badges de critério na tela de criação. | — | `CriterioDisponivelResponse[]` |
 | GET | `/cenarios/{id}` | Retorna um cenário pelo identificador. | — | `CenarioDetalheResponse` |
-| POST | `/cenarios` | Cria um novo cenário (nome e peso de cada critério — sem arquivo). | `CenarioCriacaoRequest` | `CenarioCriacaoResponse` |
+| POST | `/cenarios` | Cria um novo cenário (nome e regras de critério — sem arquivo). | `CenarioCriacaoRequest` | `CenarioCriacaoResponse` |
 | PUT | `/cenarios/{id}` | Atualiza um cenário existente. | `CenarioAtualizacaoRequest` | `CenarioDetalheResponse` |
 | DELETE | `/cenarios/{id}` | Remove um cenário e seus dados relacionados (demandas/pedidos). | — | `204 No Content` |
-| POST | `/cenarios/{id}/csv` | Envia o arquivo CSV de demandas do cenário. Permitido **apenas uma vez** por cenário. A API faz o parse do arquivo e cria as demandas associadas. | `multipart/form-data` — campo `arquivo` (arquivo `.csv`) | `CenarioDetalheResponse` |
-| GET | `/cenarios/{id}/csv` | Baixa o arquivo CSV de demandas previamente carregado para o cenário. | — | Arquivo (`text/csv`) |
-| POST | `/cenarios/{id}/processar` | Processa as demandas do cenário, gerando pedidos otimizados. | `{}` (body vazio) | `CenarioDetalheResponse` |
+| POST | `/cenarios/{id}/csv` | Envia o arquivo CSV de demandas do cenário. Permitido **apenas uma vez** por cenário. | `multipart/form-data` — campo `arquivo` (`.csv`) | `CenarioDetalheResponse` |
+| GET | `/cenarios/{id}/csv` | Baixa o arquivo CSV de demandas previamente carregado. | — | Arquivo (`text/csv`) |
+| POST | `/cenarios/{id}/processar` | Processamento **simples**: agrupa demandas por cliente+semana e gera pedidos (`Pedido`). | `{}` (body vazio) | `CenarioDetalheResponse` |
 | GET | `/cenarios/{id}/metricas` | Retorna as métricas de processamento do cenário. | — | `CenarioMetricasResponse` |
-| GET | `/cenarios/{id}/semanas/{ano}/{semana}/pedidos` | Retorna os pedidos de uma semana específica do cenário. | — | `PedidoResponse[]` |
-| PATCH | `/cenarios/{id}/pedidos/mover` | Move um pedido para outra semana (fixando-o). | `MoverPedidoRequest` | `PedidoResponse` |
+| GET | `/cenarios/{id}/semanas/{ano}/{semana}/pedidos` | Pedidos (fluxo **simples**) de uma semana do cenário. | — | `PedidoResponse[]` |
+| PATCH | `/cenarios/{id}/pedidos/mover` | Move um pedido (fluxo **simples**) para outra semana (fixando-o). | `MoverPedidoRequest` | `PedidoResponse` |
 | POST | `/cenarios/{id}/submeter` | Submete o cenário processado ao sistema externo (SAP, futuramente). | `{}` (body vazio) | `CenarioDetalheResponse` |
 
 > `CenarioListaResponse` (listagem) e `CenarioDetalheResponse` (detalhe/mutações) têm campos
-> diferentes — a listagem não precisa de `status`, `arquivoNome`, `criterios` nem
-> `primeiraSemana`/`ultimaSemana`, por exemplo. Ver 3.2/3.3.
+> diferentes — ver §3.2/§3.3.
 
-#### Regras esperadas pela API
+#### Regras de negócio
 
-- `id` do cenário é do tipo `string` (ex.: `ABC123`).
-- `GET /cenarios/criterios-disponiveis` retorna a **lista fixa de critérios disponíveis** (definida em
-  código na API, sem CRUD/tabela — ver 3.10.1 e seção 5, item 9). O `criterioChave` usado nas regras
-  (`POST`/`PUT /cenarios`) deve ser um dos valores desse enum (`CriterioChaveEnum`, ver 3.1) — valores
-  fora do enum são rejeitados com `400 Bad Request`. **Precedência de rota:** a rota literal
-  `criterios-disponiveis` precisa ser avaliada antes da rota com parâmetro `GET /cenarios/{id}`, para
-  que a requisição não seja capturada como "cenário de id = criterios-disponiveis".
-- Ao criar (`POST /cenarios`), o front envia `nome` e a lista de regras de critérios (`criterios`) — **não** envia arquivo nesta etapa. A API deve:
-  1. Persistir o cenário com status `Pendente` e `arquivoNome = null`.
-  2. Persistir a lista de regras (`criterioChave` + `operador` + `valor` + `peso` de cada item) junto ao próprio cenário — não é um cadastro à parte, e o mesmo `criterioChave` pode se repetir mais de uma vez na lista.
-  3. Retornar apenas o identificador do cenário criado (`CenarioCriacaoResponse`).
-- Ao carregar o arquivo de demandas (`POST /cenarios/{id}/csv`), disponível a partir da tela de detalhes do cenário já criado, a API deve:
-  1. Rejeitar a requisição com `409 Conflict` caso o cenário já tenha um arquivo carregado (`arquivoNome` já preenchido) — **o upload só é permitido uma única vez por cenário e o arquivo não pode ser substituído depois**.
-  2. Ler o arquivo enviado no campo `arquivo` do `multipart/form-data`.
-  3. Criar as demandas do cenário a partir do CSV (mesmo formato descrito na seção 5 ("Pontos de atenção para a API"), item 7).
-  4. Persistir `arquivoNome` com o nome do arquivo enviado e manter o conteúdo original do arquivo disponível para download.
-  5. Retornar o cenário atualizado (`CenarioDetalheResponse`), já com `arquivoNome` preenchido.
-- Ao baixar o arquivo de demandas (`GET /cenarios/{id}/csv`), a API deve retornar o arquivo originalmente enviado (mesmo conteúdo/nome), ou `404 Not Found` caso o cenário ainda não tenha um arquivo carregado.
-- Enquanto o cenário não tiver um arquivo de demandas carregado (`arquivoNome` nulo), o front mantém a ação de processamento desabilitada — a API deve rejeitar `POST /cenarios/{id}/processar` de um cenário sem demandas (ex.: `400 Bad Request`).
-- Ao processar (`POST /cenarios/{id}/processar`), a API deve:
-  1. Aplicar o algoritmo de otimização considerando o peso de cada regra de `criterios` configurada no cenário (comparando o valor da demanda ao valor da regra através do operador definido).
-  2. Gerar pedidos agrupados por cliente (e futuramente por outros critérios).
-  3. Atualizar `status = processado`, `dataUltimoProcessamento` e retornar o cenário.
-  4. Calcular `primeiraSemana` e `ultimaSemana` com base nos pedidos gerados.
-- Ao submeter (`POST /cenarios/{id}/submeter`), a API deve:
-  1. Alterar `submetido = true` e `status = submetido`.
-  2. (Futuro) Enviar pedidos ao SAP via integração.
-- Ao mover pedido (`PATCH /cenarios/{id}/pedidos/mover`), a API deve:
-  1. Atualizar `ano`/`semana` do pedido.
-  2. Marcar o pedido como `pinado = true`.
-- Os itens de `PedidoResponse` não incluem `cenarioId` (já dado pela URL) nem `grupo` (critério de agrupamento interno do algoritmo, sem uso no front); ver 3.13.
+- `GET /cenarios/criterios-disponiveis` retorna a **lista fixa de critérios disponíveis** (sem
+  CRUD/tabela). O `criterioChave` usado nas regras (`POST`/`PUT /cenarios`) precisa ser um dos
+  valores desse enum (`CriterioChaveEnum`, §3.1) — valores fora dele são rejeitados com
+  `400 Bad Request`. A rota literal `criterios-disponiveis` tem precedência sobre `GET /cenarios/{id}`.
+- Ao criar (`POST /cenarios`): persiste o cenário com status `pendente` e `arquivoNome = null`;
+  persiste a lista de regras de critério junto ao próprio cenário (não é cadastro à parte); retorna
+  só o identificador criado.
+- Upload de CSV (`POST /cenarios/{id}/csv`): rejeitado com `409 Conflict` se o cenário já tiver
+  arquivo carregado — **só é permitido uma vez por cenário**, sem substituição posterior. Formato do
+  CSV: ver §5, item 4.
+- `POST /cenarios/{id}/processar` (fluxo simples) exige que o cenário já tenha demandas carregadas
+  (`400 Bad Request` caso contrário: "Cenário sem demandas carregadas"); agrupa por cliente+semana,
+  atualiza `status = processado`/`dataUltimoProcessamento`/`primeiraSemana`/`ultimaSemana`.
+- `POST /cenarios/{id}/submeter`: marca `submetido = true` e `status = submetido`.
+- `PATCH /cenarios/{id}/pedidos/mover` (fluxo simples): atualiza `ano`/`semana` do pedido e marca
+  `pinado = true`.
+- `PedidoResponse` não inclui `cenarioId` (dado pela URL) nem `grupo` (uso interno).
 
 ---
 
-### 2.3 `DemandasController` — prefixo `/demandas`
+### 2.3 `CenariosController` — motor de otimização, prefixo `/cenarios/{id}/otimizar`
+
+Um **segundo mecanismo** de geração de pedidos, independente do processamento simples acima: roda um
+solver CP-SAT sobre a carteira de demandas do cenário e a capacidade disponível (master data nas
+tabelas `Produto`/`Centro`/`Elegibilidade`/`Capacidade`/`Carteira`), gerando uma alocação
+**cliente + produto + centro (planta) + semana** por pedido — mais fino que o fluxo simples, que é só
+cliente + semana. Por isso os pedidos gerados por este motor vivem numa tabela própria
+(`PedidoOtimizado`), sem relação com `PedidoResponse`/`/semanas/.../pedidos` do §2.2.
+
+Características do motor:
+
+- **Critérios personalizados como objetivo matemático**: usa a mesma lista `criterios` do cenário
+  (§2.2/§3.9) — soma os pesos das regras que casam com cada item como prioridade no solver.
+- **Granularidade por produto/planta**: cada "pedido" é uma alocação cliente + produto + centro + semana.
+- **Pinning**: um pedido movido manualmente (`PATCH .../pedidos/mover`) fica marcado `pinado`. Numa
+  nova chamada de `POST /otimizar`, pedidos pinados **não são recalculados** — volume e capacidade já
+  ocupados por eles são descontados antes de reotimizar o restante.
+
+| Método | Endpoint | Descrição | Request | Response |
+|---|---|---|---|---|
+| POST | `/cenarios/{id}/otimizar` | Roda a otimização CP-SAT para o cenário e persiste o resultado. | `OtimizacaoRequest` (opcional — `{}` ou body vazio) | `OtimizacaoResponse` |
+| GET | `/cenarios/{id}/otimizar/semanas/{ano}/{semana}/pedidos` | Lista os pedidos do motor numa semana específica. **Endpoint da tela de visualização por semana.** | — | `PedidoOtimizadoResponse[]` |
+| PATCH | `/cenarios/{id}/otimizar/pedidos/mover` | Move um pedido do motor para outra semana e o marca `pinado`. | `MoverPedidoOtimizadoRequest` | `PedidoOtimizadoResponse` |
+
+Padrão de uso: `POST /otimizar` roda o algoritmo e grava os pedidos; a tela semanal consome
+`GET .../semanas/{ano}/{semana}/pedidos`; arrastar/mover um pedido chama `PATCH .../pedidos/mover`,
+que fixa o pedido para a próxima reotimização.
+
+#### Regras de negócio
+
+- `POST /otimizar` retorna `404 Not Found` se o cenário não existir, e `400 Bad Request` se não
+  houver nenhuma demanda carregada (mesmo texto de erro do fluxo simples).
+- Cada chamada de `POST /otimizar` **substitui** os pedidos não-pinados do cenário (apaga e recria) e
+  **preserva** os pinados.
+- `PATCH .../pedidos/mover` retorna `404 Not Found` se `pedidoId` não existir (ou não pertencer ao
+  cenário da URL).
+
+---
+
+### 2.4 `DemandasController` — prefixo `/demandas`
 
 Responsável pelo gerenciamento das demandas importadas via CSV.
 
@@ -119,14 +164,12 @@ Responsável pelo gerenciamento das demandas importadas via CSV.
 | GET | `/demandas?cenarioId={id}` | Lista as demandas de um cenário. | Query param `cenarioId` | `DemandaResponse[]` |
 | POST | `/demandas/upload` | Faz upload/reimportação de demandas via CSV para um cenário. | `DemandaUploadRequest` | `DemandaResponse[]` |
 
-#### Regras esperadas pela API
+#### Regras de negócio
 
 - `GET /demandas` requer o query parameter `cenarioId`.
-- `POST /demandas/upload` recebe o identificador do cenário e o conteúdo textual do CSV. A API deve:
-  1. Substituir as demandas existentes do cenário pelas novas.
-  2. Fazer o parse das linhas no formato: `Cliente,Material,Volume,DataEntrega,TipoFrete`.
-  3. Retornar a nova lista de demandas.
-- Os itens de `DemandaResponse` não repetem `cenarioId` — o cliente já o informa via `cenarioId` (query param ou payload); ver 3.11.
+- `POST /demandas/upload` substitui as demandas existentes do cenário pelas novas, faz o parse do CSV
+  (formato: §5, item 4) e retorna a nova lista.
+- `DemandaResponse` não repete `cenarioId` (já informado via query param/payload).
 
 ---
 
@@ -145,33 +188,24 @@ Responsável pelo gerenciamento das demandas importadas via CSV.
 
 #### `CriterioChaveEnum`
 
-Chave fechada dos critérios disponíveis. `criterioChave` (em `CriterioRegraRequest`/`CriterioRegraResponse`
-e `CriterioDisponivelResponse.chave`) é tipado como este enum e **transmitido como inteiro** (C# não
-suporta enum de string, então a chave é um int). Valores fora do enum são rejeitados com `400 Bad Request`.
-Hoje há um único critério; a lista de critérios disponíveis (com nome legível e tipo) é servida por
-`GET /cenarios/criterios-disponiveis` (ver 3.10.1).
+Chave fechada dos critérios disponíveis. `criterioChave` é tipado como este enum e **transmitido como
+inteiro**. Valores fora dele são rejeitados com `400 Bad Request`.
 
 | Valor (int) | Membro | Descrição |
 |---|---|---|
-| `1` | `TipoFrete` | Critério "Tipo de Frete". Hoje o único critério implementado. |
+| `1` | `TipoFrete` | Critério "Tipo de Frete" — compara contra `CIF`/`FOB`. |
+| `2` | `TipoCliente` | Critério "Tipo de Cliente" — compara contra o campo `segmento` da demanda (`INDUSTRIA`/`REVENDA`). |
 
 #### `TipoCriterioEnum`
 
-Tipo de dado de um critério — determina quais operadores são aplicáveis (ver `OperadorCriterioEnum`)
-e como o campo `valor` de uma regra deve ser interpretado.
-
 | Valor | Descrição |
 |---|---|
-| `string` | Critério cujo valor de comparação é textual (ex.: Tipo de Frete). |
-| `numerico` | Critério cujo valor de comparação é numérico. |
+| `string` | Critério cujo valor de comparação é textual (Tipo de Frete e Tipo de Cliente, hoje, são ambos `string`). |
+| `numerico` | Critério cujo valor de comparação é numérico (nenhum critério numérico implementado ainda). |
 
-> Este enum não é enviado/recebido via API — ele qualifica os critérios disponíveis, que são uma
-> lista fixa definida em código tanto no front quanto no back (`CRITERIOS_DISPONIVEIS` no front,
-> ver `src/app/domain/models/criterio/criterio.model.ts`).
+> Não é enviado/recebido via API — qualifica os critérios de `GET /cenarios/criterios-disponiveis`.
 
 #### `OperadorCriterioEnum`
-
-Operadores de comparação disponíveis para uma regra de critério (`CriterioRegraRequest.operador`).
 
 | Valor | Descrição | Aplicável a |
 |---|---|---|
@@ -182,17 +216,20 @@ Operadores de comparação disponíveis para uma regra de critério (`CriterioRe
 | `comeca_com` | Começa com. | `string` |
 | `termina_com` | Termina com. | `string` |
 
-> A API deve validar que o operador enviado é compatível com o tipo do critério referenciado por
-> `criterioChave` (ex.: rejeitar `maior_que` para o critério "Tipo de Frete", que é `string`) —
-> retornar `400 Bad Request` em caso de incompatibilidade.
+#### `ModoCapacidade` (só no motor de otimização, campo `OtimizacaoRequest.capacidade`)
+
+| Valor (int) | Significado |
+|---|---|
+| `0` | Real — usa a capacidade real apenas nas semanas em que ela existe. |
+| `1` | Simulada (default) — replica o perfil médio semanal mais recente para o horizonte todo. |
+| `2` | Espalhada — redistribui a capacidade real entre plantas elegíveis para a mesma linha de produto. |
 
 ---
 
 ### 3.2 `CenarioListaResponse`
 
-Retornado em `GET /cenarios`. Forma resumida do cenário usada na tela de listagem — não inclui
-`status`, `arquivoNome`, `criterios` nem `primeiraSemana`/`ultimaSemana`, que a listagem
-não exibe.
+Retornado em `GET /cenarios`. Forma resumida — não inclui `status`, `arquivoNome`, `criterios` nem
+`primeiraSemana`/`ultimaSemana`.
 
 ```json
 {
@@ -206,7 +243,7 @@ não exibe.
 
 ### 3.3 `CenarioDetalheResponse`
 
-Retornado em `GET /cenarios/{id}` e, por representarem o mesmo recurso já atualizado, também em
+Retornado em `GET /cenarios/{id}` e, por representarem o mesmo recurso atualizado, também em
 `PUT /cenarios/{id}`, `POST /cenarios/{id}/csv`, `POST /cenarios/{id}/processar` e
 `POST /cenarios/{id}/submeter`.
 
@@ -227,11 +264,7 @@ Retornado em `GET /cenarios/{id}` e, por representarem o mesmo recurso já atual
 
 ### 3.4 `CenarioCriacaoRequest`
 
-Enviado em `POST /cenarios`. Não contém dados do arquivo — o upload do CSV é feito em uma
-requisição separada, após o cenário já existir (ver 3.4.3). `criterios` é a lista de regras
-configuradas pelo usuário na tela de criação (badges de critérios → linhas de
-critério/operador/valor/peso); o mesmo `criterioChave` pode se repetir mais de uma vez na lista
-(ex.: uma regra para "Tipo de Frete igual a CIF" e outra para "Tipo de Frete igual a FOB").
+Enviado em `POST /cenarios`. Não contém dados do arquivo — upload do CSV é uma requisição separada.
 
 ```json
 {
@@ -242,13 +275,8 @@ critério/operador/valor/peso); o mesmo `criterioChave` pode se repetir mais de 
 
 ### 3.4.1 `CenarioCriacaoResponse`
 
-Retornado em `POST /cenarios`. O front só usa o identificador do cenário recém-criado, para
-redirecionar à tela de detalhes — por isso não retorna a representação completa do cenário.
-
 ```json
-{
-  "id": "ABC123"
-}
+{ "id": "ABC123" }
 ```
 
 ### 3.4.2 `CenarioAtualizacaoRequest`
@@ -264,19 +292,13 @@ Enviado em `PUT /cenarios/{id}`.
 
 ### 3.4.3 Upload do CSV de demandas (`POST /cenarios/{id}/csv`)
 
-Diferente dos demais endpoints, este não recebe JSON: o corpo da requisição é
-`multipart/form-data` com um único campo de arquivo.
+Corpo `multipart/form-data` com um único campo de arquivo.
 
 | Campo | Tipo | Descrição |
 |---|---|---|
-| `arquivo` | `file` (`.csv`) | Arquivo de demandas no formato descrito na seção 5 ("Pontos de atenção para a API"), item 7. |
-
-> O front (`CenarioService.enviarCsv`) monta um `FormData` com `formData.append('arquivo', arquivo, arquivo.name)`
-> e faz `POST` para `/cenarios/{id}/csv` sem definir `Content-Type` manualmente (o browser define o boundary do multipart).
+| `arquivo` | `file` (`.csv`) | Arquivo de demandas no formato descrito em §5, item 4. |
 
 ### 3.5 `CenarioMetricasResponse`
-
-Retornado em `GET /cenarios/{id}/metricas`.
 
 ```json
 {
@@ -291,38 +313,25 @@ Retornado em `GET /cenarios/{id}/metricas`.
 ### 3.6 `CenarioMetricaSemanaResponse`
 
 ```json
-{
-  "ano": "number",
-  "semana": "number",
-  "volume": "number",
-  "quantidadePedidos": "number"
-}
+{ "ano": "number", "semana": "number", "volume": "number", "quantidadePedidos": "number" }
 ```
 
 ### 3.7 `CenarioOcupacaoPlantaResponse`
 
 ```json
-{
-  "data": "Date (ISO 8601)",
-  "percentual": "number (0-100)"
-}
+{ "data": "Date (ISO 8601)", "percentual": "number (0-100)" }
 ```
 
 ### 3.8 `SemanaAnoResponse`
 
 ```json
-{
-  "ano": "number",
-  "semana": "number"
-}
+{ "ano": "number", "semana": "number" }
 ```
 
 ### 3.9 `CriterioRegraRequest`
 
-Enviado como item da lista `criterios` em `CenarioCriacaoRequest`/`CenarioAtualizacaoRequest`.
-Representa uma regra: um critério (`criterioChave`) comparado via `operador` a `valor`, com um
-`peso` de -100 a 100 (negativo penaliza, positivo prioriza). O mesmo `criterioChave` pode
-aparecer em mais de uma regra da mesma lista.
+Item da lista `criterios` em `CenarioCriacaoRequest`/`CenarioAtualizacaoRequest`. `peso` é um inteiro
+de -100 a 100 (negativo penaliza, positivo prioriza). O mesmo `criterioChave` pode se repetir.
 
 ```json
 {
@@ -333,52 +342,30 @@ aparecer em mais de uma regra da mesma lista.
 }
 ```
 
-- `criterioChave`: valor **inteiro** de `CriterioChaveEnum` (ver 3.1) — chave de um dos critérios
-  disponíveis (hoje, apenas `1` = TipoFrete). Valores fora do enum são rejeitados com `400 Bad Request`.
-- `valor`: sempre transmitido como `string`; a API deve interpretá-lo como texto ou número
-  conforme o `TipoCriterioEnum` do critério referenciado por `criterioChave`.
-- `peso`: número inteiro entre -100 e 100.
-
 ### 3.10 `CriterioRegraResponse`
 
-Retornado como item da lista `criterios` em `CenarioDetalheResponse. Mesma forma de
-`CriterioRegraRequest` — não inclui o nome legível do critério (`criterioNome`): o front resolve
-o nome a partir de `criterioChave` usando a mesma lista fixa de critérios disponíveis
-(`CRITERIOS_DISPONIVEIS`) usada na tela de criação.
+Mesma forma de `CriterioRegraRequest`, retornado em `CenarioDetalheResponse.criterios`.
 
 ```json
-{
-  "criterioChave": 1,
-  "operador": "OperadorCriterioEnum",
-  "valor": "string",
-  "peso": "number"
-}
+{ "criterioChave": 1, "operador": "OperadorCriterioEnum", "valor": "string", "peso": "number" }
 ```
 
 ### 3.10.1 `CriterioDisponivelResponse`
 
-Retornado em `GET /cenarios/criterios-disponiveis`. Lista fixa definida em código na API (sem
-CRUD/tabela) — usada pelo front para montar os badges de critério e saber, para cada critério, seu
-nome legível e seu `TipoCriterioEnum` (que determina quais operadores ficam disponíveis).
+Retornado em `GET /cenarios/criterios-disponiveis`. **Hoje retorna 2 itens** (mudou de 1 para 2 desde
+a última integração — ver §6):
 
 ```json
 [
-  {
-    "chave": 1,
-    "nome": "Tipo de Frete",
-    "tipo": "string"
-  }
+  { "chave": 1, "nome": "Tipo de Frete", "tipo": "string" },
+  { "chave": 2, "nome": "Tipo de Cliente", "tipo": "string" }
 ]
 ```
 
-- `chave`: valor **inteiro** de `CriterioChaveEnum` (ver 3.1).
-- `nome`: nome legível, exibido no badge e na tela de detalhes.
-- `tipo`: valor de `TipoCriterioEnum` (`string` | `numerico`).
-
 ### 3.11 `DemandaResponse`
 
-Retornado em `GET /demandas?cenarioId={id}` e `POST /demandas/upload`. Não inclui `cenarioId` —
-o cliente já o informa via query param (GET) ou payload (upload).
+Retornado em `GET /demandas?cenarioId={id}` e `POST /demandas/upload`. **Ganhou o campo `segmento`**
+desde a última integração (ver §6):
 
 ```json
 {
@@ -387,31 +374,26 @@ o cliente já o informa via query param (GET) ou payload (upload).
   "material": "string",
   "volume": "number",
   "dataEntregaDesejada": "Date (ISO 8601)",
-  "tipoFrete": "string"
+  "tipoFrete": "string",
+  "segmento": "string"
 }
 ```
 
-> `tipoFrete` é texto livre, não um enum fechado — o "Tipo de Frete" é hoje o único critério de
-> otimização implementado (ver 3.9/3.10) e seu tipo de dado é `string` (`TipoCriterioEnum.string`).
-> Por convenção os valores vistos na prática são `CIF`/`FOB` (é o que o parser do CSV normaliza,
-> ver item 7 da seção 5), mas a API não deve validar contra uma lista fechada de valores.
+> `tipoFrete` e `segmento` são texto livre, não enums fechados. Por convenção, `tipoFrete` é
+> `CIF`/`FOB`; `segmento` reconhecido pelo motor de otimização é `INDUSTRIA`/`REVENDA` (qualquer
+> variação de `"INDUSTRIA"` normaliza para `Industria`, o resto vira `Revenda`) — ver critério "Tipo
+> de Cliente" em §3.1/§2.3.
 
 ### 3.12 `DemandaUploadRequest`
 
-Enviado em `POST /demandas/upload`.
-
 ```json
-{
-  "cenarioId": "ABC123",
-  "conteudoCsv": "string"
-}
+{ "cenarioId": "ABC123", "conteudoCsv": "string" }
 ```
 
-### 3.13 `PedidoResponse`
+### 3.13 `PedidoResponse` (fluxo simples)
 
 Retornado em `GET /cenarios/{id}/semanas/{ano}/{semana}/pedidos` e `PATCH /cenarios/{id}/pedidos/mover`.
-Não inclui `cenarioId` (já dado pela URL) nem `grupo` (critério de agrupamento interno do
-algoritmo, sem uso no front).
+Agregado por **cliente + semana** (sem produto/planta). Não inclui `cenarioId` nem `grupo`.
 
 ```json
 {
@@ -426,31 +408,207 @@ algoritmo, sem uso no front).
 }
 ```
 
-> `tipoFrete` aqui é apenas o valor herdado das demandas agrupadas no pedido — mesma observação
-> da seção 3.11 sobre não ser um enum fechado.
-
-### 3.14 `MoverPedidoRequest`
-
-Enviado em `PATCH /cenarios/{id}/pedidos/mover`.
+### 3.14 `MoverPedidoRequest` (fluxo simples)
 
 ```json
-{
-  "pedidoId": "X1Y2Z3",
-  "anoDestino": "number",
-  "semanaDestino": "number"
-}
+{ "pedidoId": "X1Y2Z3", "anoDestino": "number", "semanaDestino": "number" }
 ```
 
 ### 3.15 `PerfilResponse`
 
-Retornado em `GET /conta/profile`.
+```json
+{ "colaboradorId": "ABC123", "nome": "string", "email": "string" }
+```
+
+---
+
+### 3.16 `OtimizacaoRequest`
+
+Enviado em `POST /cenarios/{id}/otimizar`. **Todos os campos são opcionais** — `{}` ou body vazio usa
+os defaults do motor.
 
 ```json
 {
-  "colaboradorId": "ABC123",
-  "nome": "string",
-  "email": "string"
+  "horizonte": 8,
+  "capacidade": 1,
+  "semanaInicial": "2026-W32",
+  "alvoCapacidadeSobreDemanda": 0.8,
+  "limiteSegundos": 60,
+  "carretaMinimoM3": 25,
+  "carretaMaximoM3": 30,
+  "limiteRecebimentoCarretasPorSemana": null
 }
+```
+
+| Campo | Tipo | Default | Descrição |
+|---|---|---|---|
+| `horizonte` | `number \| null` | `8` | Semanas à frente consideradas. |
+| `capacidade` | `number \| null` | `1` (Simulada) | Modo de capacidade — ver `ModoCapacidade`, §3.1. |
+| `semanaInicial` | `string \| null` | semana corrente | Semana ISO de início, formato `"2026-W32"`. |
+| `alvoCapacidadeSobreDemanda` | `number \| null` | `0.8` | Fração alvo de capacidade sobre a demanda elegível (0–1). |
+| `limiteSegundos` | `number \| null` | `60` | Tempo máximo do solver, em segundos. |
+| `carretaMinimoM3` | `number \| null` | `25` | Volume mínimo (m³) por embarque/carreta. |
+| `carretaMaximoM3` | `number \| null` | `30` | Volume máximo (m³) por carreta. |
+| `limiteRecebimentoCarretasPorSemana` | `number \| null` | desativado | Limite de carretas/semana por cliente, quando enviado. |
+
+### 3.17 `OtimizacaoResponse`
+
+Retornado em `POST /cenarios/{id}/otimizar`.
+
+```json
+{
+  "resultadoId": "A1B2C3",
+  "geradoEm": "2026-08-07T14:32:10Z",
+  "horizonte": ["2026-W32", "2026-W33", "2026-W34", "2026-W35"],
+  "solver": { "...": "OtimizacaoSolverResponse" },
+  "resumo": { "...": "OtimizacaoResumoResponse" },
+  "alocacoes": ["OtimizacaoAlocacaoResponse[]"],
+  "naoAlocado": ["OtimizacaoNaoAlocadoResponse[]"],
+  "notas": ["string[]"]
+}
+```
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `resultadoId` | `string` | Identificador da execução (6 caracteres). |
+| `geradoEm` | `Date (ISO 8601)` | Data/hora (UTC) da execução. |
+| `horizonte` | `string[]` | Semanas ISO consideradas, ex.: `"2026-W32"`. |
+| `solver` | `OtimizacaoSolverResponse` | Estatísticas do solver (§3.18). |
+| `resumo` | `OtimizacaoResumoResponse` | Números agregados (§3.19). |
+| `alocacoes` | `OtimizacaoAlocacaoResponse[]` | Pedidos **recém-gerados** nesta execução (pinados de execuções anteriores não aparecem aqui, mas continuam em `GET .../semanas/{ano}/{semana}/pedidos`). |
+| `naoAlocado` | `OtimizacaoNaoAlocadoResponse[]` | Saldos de demanda sem capacidade no horizonte. |
+| `notas` | `string[]` | Mensagens de diagnóstico (calibração, pré-flight, pinning) — para painel de detalhes/debug. |
+
+### 3.18 `OtimizacaoSolverResponse`
+
+```json
+{ "status": "Optimal", "segundos": 3.271, "objetivo": 1840, "variaveis": 512, "binarias": 340 }
+```
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `status` | `string` | `"Optimal"`, `"Feasible"`, `"Infeasible"`, `"Unknown"` etc. (OR-Tools, serializado como string). |
+| `segundos` | `number` | Tempo de execução do solver. |
+| `objetivo` | `number` | Valor da função objetivo (sem unidade de negócio direta). |
+| `variaveis` | `number` | Variáveis do modelo CP-SAT. |
+| `binarias` | `number` | Variáveis binárias do modelo. |
+
+> `status` diferente de `"Optimal"`/`"Feasible"` indica que o solver não confirmou solução —
+> `alocacoes` pode vir vazio mesmo havendo demanda. Vale destacar esse campo na UI quando não for
+> `"Optimal"`.
+
+### 3.19 `OtimizacaoResumoResponse`
+
+```json
+{
+  "demandaTotalM3": 158920.06,
+  "demandaElegivelM3": 135706.76,
+  "alocadoM3": 108481.32,
+  "naoAlocadoM3": 27225.44,
+  "capacidadeTotal": 108572,
+  "percentualAlocado": 0.7994,
+  "itens": 8358,
+  "itensExcluidos": 1545
+}
+```
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `demandaTotalM3` | `number` | Volume total de demanda do cenário (m³), antes de filtros. |
+| `demandaElegivelM3` | `number` | Volume que passou no pré-flight. |
+| `alocadoM3` | `number` | Volume total alocado — inclui pinados de execuções anteriores + o novo. |
+| `naoAlocadoM3` | `number` | Volume sem capacidade disponível nesta execução. |
+| `capacidadeTotal` | `number` | Capacidade total do horizonte (já com o pinado descontado). |
+| `percentualAlocado` | `number` | `alocadoM3 / demandaElegivelM3`, entre `0` e `1`. |
+| `itens` | `number` | Itens (cliente+produto) considerados. |
+| `itensExcluidos` | `number` | Itens descartados no pré-flight. |
+
+### 3.20 `OtimizacaoAlocacaoResponse`
+
+Item de `alocacoes` em `OtimizacaoResponse` — mesma forma de `PedidoOtimizadoResponse` (§3.22), sem
+`id` (ainda não persistido na resposta) e sempre `pinado: false`.
+
+```json
+{
+  "cliente": "561125447",
+  "material": "1741252",
+  "linhaProdutoId": 17,
+  "centroId": 2,
+  "centro": "Jaguariaíva",
+  "tipoFrete": "CIF",
+  "volume": 30.0,
+  "ano": 2026,
+  "semana": 32,
+  "pinado": false,
+  "scorePeso": 115
+}
+```
+
+### 3.21 `OtimizacaoNaoAlocadoResponse`
+
+Item de `naoAlocado` em `OtimizacaoResponse` — volume de um item (cliente+produto) sem capacidade.
+
+```json
+{
+  "cliente": "561125447",
+  "material": "1741252",
+  "linhaProdutoId": 17,
+  "volumeM3": 4.83,
+  "motivo": "sem capacidade suficiente no horizonte para o volume restante"
+}
+```
+
+### 3.22 `PedidoOtimizadoResponse`
+
+Retornado em `GET /cenarios/{id}/otimizar/semanas/{ano}/{semana}/pedidos` e
+`PATCH /cenarios/{id}/otimizar/pedidos/mover`. **Modelo da tela de visualização do motor de
+otimização.**
+
+```json
+{
+  "id": "F4G5H6",
+  "cliente": "561125447",
+  "material": "1741252",
+  "linhaProdutoId": 17,
+  "centroId": 2,
+  "centro": "Jaguariaíva",
+  "tipoFrete": "CIF",
+  "volume": 30.00,
+  "ano": 2026,
+  "semana": 32,
+  "pinado": false,
+  "scorePeso": 115
+}
+```
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `id` | `string` | Identificador do pedido (6 caracteres). Usar como `pedidoId` em `MoverPedidoOtimizadoRequest`. |
+| `cliente` | `string` | Identificador do cliente (mesmo valor de `Demanda.cliente`). |
+| `material` | `string` | Identificador do produto. **Não existe em `PedidoResponse`** (fluxo simples). |
+| `linhaProdutoId` | `number` | Linha de produto do material. |
+| `centroId` | `number` | Centro/planta que atende o pedido. |
+| `centro` | `string` | Nome legível do centro (ex.: `"Jaguariaíva"`). |
+| `tipoFrete` | `string` | `"CIF"` ou `"FOB"`. |
+| `volume` | `number` | Volume (m³) desta alocação **específica** (cliente+produto+centro+semana) — não é o total do cliente na semana. |
+| `ano` / `semana` | `number` | Semana ISO de entrega. |
+| `pinado` | `boolean` | `true` = fixado manualmente, não muda na próxima `POST /otimizar`. |
+| `scorePeso` | `number` | Soma dos pesos dos critérios que casaram com este item — quanto maior, mais prioritário para o solver. |
+
+> **Granularidade vs. `PedidoResponse`:** um `PedidoResponse` (fluxo simples) é o volume de um cliente
+> numa semana inteira (sem produto/planta). Um `PedidoOtimizadoResponse` é uma alocação
+> cliente+produto+centro+semana — a lista de uma semana normalmente tem **mais itens**, porque cada
+> combinação produto/planta é uma linha própria. Para uma visualização parecida com a do fluxo
+> simples, agrupar por `cliente` na tela (com detalhamento por `material`/`centro` expansível) é o
+> caminho mais direto.
+
+### 3.23 `MoverPedidoOtimizadoRequest`
+
+Enviado em `PATCH /cenarios/{id}/otimizar/pedidos/mover`. Mesma forma de `MoverPedidoRequest` (fluxo
+simples) — move para `anoDestino`/`semanaDestino` e marca `pinado = true`.
+
+```json
+{ "pedidoId": "F4G5H6", "anoDestino": 2026, "semanaDestino": 34 }
 ```
 
 ---
@@ -459,70 +617,103 @@ Retornado em `GET /conta/profile`.
 
 | Código | Uso |
 |---|---|
-| `200 OK` | Operações de leitura/atualização bem-sucedidas. |
+| `200 OK` | Leitura/atualização bem-sucedida (inclui `POST /otimizar`, `POST /processar`). |
 | `201 Created` | Criação bem-sucedida (`POST /cenarios`). |
 | `204 No Content` | Exclusão bem-sucedida (`DELETE /cenarios/{id}`). |
-| `400 Bad Request` | Payload inválido, CSV malformado, regra de negócio não atendida. Retornar `message` no corpo. |
-| `401 Unauthorized` | Token inválido ou expirado. O front fará sign-out. |
+| `400 Bad Request` | Payload inválido, CSV malformado, regra de negócio não atendida (ex.: cenário sem demandas). Corpo com `message`. |
+| `401 Unauthorized` | Token inválido ou expirado. O front faz sign-out. |
 | `403 Forbidden` | Usuário sem permissão. |
-| `404 Not Found` | Recurso não encontrado (`Cenário`, `Pedido`). |
-| `409 Conflict` | Conflito de estado (ex.: tentar processar cenário já submetido, ou enviar CSV de um cenário que já tem arquivo). |
+| `404 Not Found` | Recurso não encontrado (cenário, pedido). |
+| `409 Conflict` | Conflito de estado (ex.: reenviar CSV de cenário que já tem arquivo). |
 | `500 Internal Server Error` | Erro inesperado. |
-| `503 Service Unavailable` | Serviço temporariamente indisponível. O front redireciona para `/server-error`. |
+| `503 Service Unavailable` | Serviço indisponível. O front redireciona para `/server-error`. |
 
----
+Corpo padrão de erro (`ErrorBuilder`, aplicado globalmente):
 
-## 5. Pontos de atenção para a API
-
-1. **IDs**: todos os identificadores expostos pela API (`id`, `cenarioId`, `pedidoId`, `colaboradorId`) devem ser do tipo `string`, no formato alfanumérico uppercase de 6 caracteres (ex.: `ABC123`, `A1B2C3`, `X9Y8Z7`).
-2. **Cálculo de semana ISO**: o front utiliza regra ISO 8601 para calcular ano/semana (`Utils.obterSemanaIso`). A API deve usar a mesma regra para evitar divergências na visualização semanal.
-3. **Agrupamento de demandas em pedidos**: hoje o mock agrupa por cliente. Futuramente o algoritmo pode considerar outros critérios; a API deve manter o contrato `PedidoResponse`.
-4. **`pinado`**: pedidos movidos manualmente devem permanecer fixos em uma nova reexecução do algoritmo.
-5. **`primeiraSemana` / `ultimaSemana`**: devem ser derivados dos pedidos processados do cenário e retornados em `CenarioDetalheResponse`.
-6. **`ocupacaoPlanta`**: métrica usada no gráfico de ocupação. Hoje o mock retorna dados estáticos; a API deve calcular com base na capacidade da planta e nos pedidos alocados.
-7. **Formato CSV de demandas**: `Cliente,Material,Volume,DataEntrega,TipoFrete`. A coluna `TipoFrete` é interpretada case-insensitive e normalizada para `CIF` ou `FOB` (qualquer valor diferente de `CIF` vira `FOB`) — são apenas os valores usados por convenção hoje, não uma lista fechada validada pela API (`tipoFrete` é `string` livre, ver 3.11).
-8. **Autenticação**: toda requisição deve passar pelo middleware de autenticação, validando o JWT Bearer enviado pelo front.
-9. **Critérios não são um cadastro**: não crie um `CriteriosController`/tabela de critérios reutilizáveis entre cenários. A lista `criterios` (regras de critério + operador + valor + peso) é um dado do próprio cenário, persistido junto a ele — não uma entidade à parte, e o mesmo `criterioChave` pode se repetir na lista de um cenário. Quais critérios existem e seu `TipoCriterioEnum` são fixos em código (`CRITERIOS_DISPONIVEIS`); ao adicionar um critério novo no futuro, inclua-o nessa lista fixa (com seu tipo), sem criar uma tabela de "critérios disponíveis" no banco.
-10. **Validação de operador por tipo**: ao receber uma regra em `criterios`, a API deve validar que `operador` é compatível com o `TipoCriterioEnum` do critério referenciado por `criterioChave` (ver tabela em `OperadorCriterioEnum`, seção 3.1) — rejeitar com `400 Bad Request` caso contrário.
-
----
-
-## 6. Substituição futura do mock-api
-
-No front, a transição será simples: os serviços já montam as URLs reais quando o `environment.api.baseUrl` está configurado. Hoje os serviços usam o padrão `${environment.api.baseUrl}${environment.api.<modulo>}` (ex.: `api/cenarios`), que é interceptado pelo FuseMockApi.
-
-Quando a API real estiver disponível:
-
-1. Os serviços já montam a URL via `${environment.api.baseUrl}${environment.api.<modulo>}` (ver `CenarioService`, `DemandaService`) — basta que `environment.api.baseUrl` aponte para a API real.
-2. Remover ou desabilitar o `MockApiService` em `src/app/app.config.ts`.
-3. Manter os modelos em `src/app/domain/models` e enums em `src/app/domain/enums` — eles refletem o contrato da API. Os modelos são específicos por endpoint (uma interface por request/response de cada operação, ex.: `CenarioListaResponse`, `CenarioDetalheResponse`, `CenarioCriacaoRequest`/`CenarioCriacaoResponse`) e seguem os sufixos `Request`/`Response` definidos neste documento — evite reintroduzir um único modelo genérico por entidade.
-
-Exemplo de URL montada em `CenarioService`:
-
-```ts
-const url = `${environment.api.baseUrl}${environment.api.cenarios}`;
+```json
+{ "message": "string", "trace": "string", "knownError": true }
 ```
 
+`failures` é incluído no lugar de `knownError` quando o erro é de validação de modelo
+(`ModelValidationException`).
+
 ---
 
-## 7. Checklist de controllers/endpoints a implementar
+## 5. Pontos de atenção
 
-- [ ] `ContaController`
-  - [ ] `GET /conta/profile`
-- [ ] `CenariosController`
-  - [ ] `GET /cenarios`
-  - [ ] `GET /cenarios/criterios-disponiveis`
-  - [ ] `GET /cenarios/{id}`
-  - [ ] `POST /cenarios`
-  - [ ] `PUT /cenarios/{id}`
-  - [ ] `DELETE /cenarios/{id}`
-  - [ ] `POST /cenarios/{id}/csv`
-  - [ ] `GET /cenarios/{id}/csv`
-  - [ ] `POST /cenarios/{id}/processar`
-  - [ ] `GET /cenarios/{id}/metricas`
-  - [ ] `GET /cenarios/{id}/semanas/{ano}/{semana}/pedidos`
-  - [ ] `PATCH /cenarios/{id}/pedidos/mover`
-  - [ ] `POST /cenarios/{id}/submeter`
-- [ ] `DemandasController`
-  - [ ] `GET /demandas?cenarioId={id}`
-  - [ ] `POST /demandas/upload`
+1. **IDs**: todo identificador (`id`, `cenarioId`, `pedidoId`, `colaboradorId`, `resultadoId`) é
+   `string` alfanumérico uppercase de 6 caracteres.
+2. **Cálculo de semana ISO**: mesma regra ISO 8601 usada pelo front (`Utils.obterSemanaIso`) — tanto
+   no fluxo simples quanto no motor de otimização.
+3. **Dois algoritmos, dois conjuntos de pedidos**: `POST /processar` (agrupamento simples por
+   cliente+semana, `Pedido`/`PedidoResponse`) e `POST /otimizar` (CP-SAT com critérios, granularidade
+   cliente+produto+planta+semana, `PedidoOtimizado`/`PedidoOtimizadoResponse`) são independentes —
+   rodar um não afeta os pedidos do outro. Confirmar com o produto qual fluxo a tela deve priorizar
+   (ou se ambos continuam coexistindo na UI).
+4. **Formato CSV de demandas**: `Cliente,Material,Volume,DataEntrega,TipoFrete,Segmento`. `TipoFrete`
+   é case-insensitive, normalizado para `CIF`/`FOB` (qualquer valor diferente de `CIF` vira `FOB`).
+   `Segmento` é a **6ª coluna, opcional** — CSVs de 5 colunas continuam funcionando, assumindo
+   `REVENDA`; qualquer variação de `"INDUSTRIA"` vira `Industria`, o resto vira `Revenda`. Nenhuma das
+   duas colunas é validada contra lista fechada pela API.
+5. **`pinado`**: em ambos os fluxos, pedidos movidos manualmente permanecem fixos numa nova execução
+   do algoritmo correspondente.
+6. **`primeiraSemana`/`ultimaSemana`**: derivados dos pedidos do fluxo **simples** (`Pedido`), não do
+   motor de otimização.
+7. **Critérios não são um cadastro**: a lista `criterios` é dado do próprio cenário, não uma entidade
+   à parte. Quais critérios existem (hoje: Tipo de Frete, Tipo de Cliente) e seu `TipoCriterioEnum`
+   são fixos em código, servidos por `GET /cenarios/criterios-disponiveis`.
+8. **Validação de operador por tipo**: a API valida que `operador` é compatível com o
+   `TipoCriterioEnum` do critério referenciado por `criterioChave` — `400 Bad Request` caso contrário.
+9. **Autenticação**: toda requisição deve enviar o JWT Bearer do Cognito no header `Authorization`.
+
+---
+
+## 6. Impacto no front-end atual — o que precisa ser ajustado
+
+Levantamento feito lendo o código atual de `arauco-otimizador-pedidos-app` (`src/app/services/*.ts`)
+contra a API descrita acima. Pontos concretos a planejar:
+
+1. **`CenarioV2Service` (`cenario-v2.service.ts`) usa rotas que não existem mais.** Os 3 métodos
+   (`otimizar`, `obterPedidosPorSemana`, `moverPedido`) chamam `/cenarios/{id}/otimizar-v2...` — a API
+   unificou o motor em `/cenarios/{id}/otimizar` (sem `-v2`, ver §2.3). **O formato dos payloads não
+   mudou campo a campo** (`OtimizacaoV2Request`/`Response`, `PedidoV2Response`,
+   `MoverPedidoV2Request` no front têm a mesma forma de `OtimizacaoRequest`/`Response`,
+   `PedidoOtimizadoResponse`, `MoverPedidoOtimizadoRequest` na API) — o ajuste é essencialmente trocar
+   as 3 URLs; renomear os tipos TS (`app/domain/models/cenario-v2`, `app/domain/models/pedido-v2`)
+   para tirar o "V2" é opcional/cosmético, já que não existe mais uma "V1" para diferenciar.
+2. **`CenarioService.processar()` (`cenario.service.ts`) aponta para `/cenarios/{id}/otimizar-v2`, mas
+   tipa a resposta como `CenarioDetalheResponse`.** Isso não bate com nenhum contrato real, nem o
+   antigo nem o atual — `POST /otimizar` sempre retornou `OtimizacaoResponse`/`OtimizacaoV2Response`,
+   nunca `CenarioDetalheResponse`. Pelo nome do método e pelo tipo de retorno, o mais provável é que
+   ele devesse chamar o fluxo simples `POST /cenarios/{id}/processar` (que de fato retorna
+   `CenarioDetalheResponse`) — vale confirmar a intenção original antes de corrigir, já que hoje as
+   duas telas (`modules/cenarios` e `modules/cenarios-v2`) parecem ter ficado misturadas nesse ponto.
+3. **`GET /cenarios/criterios-disponiveis` agora retorna 2 itens**, não 1 (`Tipo de Frete` +
+   `Tipo de Cliente`, ver §3.10.1). Telas/lógica que assumam item único devem ser revisadas.
+4. **`DemandaResponse` ganhou o campo `segmento`**, e o CSV de upload aceita uma 6ª coluna opcional
+   `Segmento` (§3.11, §5 item 4). `demanda.model.ts` e a tela de upload/preview de CSV devem refletir
+   isso, especialmente se a tela for exibir/editar o critério "Tipo de Cliente".
+5. **Convivência de dois módulos** (`modules/cenarios` e `modules/cenarios-v2`): com o back-end agora
+   tendo só uma versão do motor de otimização, vale decidir com o produto se as duas telas continuam
+   como fluxos paralelos (processamento simples vs. motor CP-SAT) ou se uma delas deve ser
+   descontinuada/unificada.
+6. **`CartaoController`/`ContaController`**: `Conta` já está integrado (`auth.service.ts`) e continua
+   igual — sem ajuste necessário. `Cartao` não é usado pelo front hoje e não faz parte deste produto —
+   nenhuma ação necessária.
+
+---
+
+## 7. Checklist de ajustes no front-end
+
+- [ ] `cenario-v2.service.ts`: trocar as 3 URLs de `/otimizar-v2` para `/otimizar`.
+- [ ] `cenario.service.ts#processar()`: revisar se deveria chamar `/processar` (fluxo simples) em vez
+      de `/otimizar-v2`, e ajustar o tipo de retorno esperado de acordo com a decisão.
+- [ ] Atualizar `criterio.model.ts`/telas de critério para lidar com 2 critérios disponíveis
+      (`Tipo de Frete`, `Tipo de Cliente`), não mais 1.
+- [ ] Atualizar `demanda.model.ts` (campo `segmento`) e a tela de upload/preview de CSV (6ª coluna
+      opcional `Segmento`).
+- [ ] Decidir, com o produto, o destino de `modules/cenarios` vs. `modules/cenarios-v2` (fluxo simples
+      vs. motor de otimização) agora que o back-end não versiona mais o motor.
+- [ ] (Opcional/cosmético) Renomear tipos TS que ainda carregam sufixo "V2"
+      (`OtimizacaoV2Request/Response`, `PedidoV2Response`, `MoverPedidoV2Request`) já que não há mais
+      uma "V1" para diferenciar.

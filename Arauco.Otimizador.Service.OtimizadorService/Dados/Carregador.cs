@@ -1,3 +1,6 @@
+using Arauco.Otimizador.Data.Entities;
+using Microsoft.EntityFrameworkCore;
+
 namespace Arauco.Otimizador.Service.OtimizadorService.Dados;
 
 public sealed class Carregador
@@ -11,17 +14,15 @@ public sealed class Carregador
     public IReadOnlyCollection<(int Centro, int LinhaProduto)> ParesElegiveis { get; private init; } = [];
     public List<string> Notas { get; private init; } = [];
 
-    public static async Task<Carregador> CarregarAsync(string pasta)
+    public static async Task<Carregador> CarregarAsync(IUnitOfWork unitOfWork)
     {
         var notas = new List<string>();
 
-        var centros = await CarregarCentrosAsync(Path.Combine(pasta, "centros.parquet"), notas);
-        var produtos = await CarregarProdutosAsync(Path.Combine(pasta, "produtos.parquet"));
-        var elegibilidade = await CarregarElegibilidadeAsync(
-            Path.Combine(pasta, "elegibilidade.parquet"), centros, notas);
-        var carteira = await CarregarCarteiraAsync(Path.Combine(pasta, "demanda.parquet"), notas);
-        var capacidade = await CarregarCapacidadeAsync(
-            Path.Combine(pasta, "capacidade.parquet"), centros, notas);
+        var centros = await CarregarCentrosAsync(unitOfWork, notas);
+        var produtos = await CarregarProdutosAsync(unitOfWork);
+        var elegibilidade = await CarregarElegibilidadeAsync(unitOfWork, centros, notas);
+        var carteira = await CarregarCarteiraAsync(unitOfWork, notas);
+        var capacidade = await CarregarCapacidadeAsync(unitOfWork, centros, notas);
 
         var paresElegiveis = elegibilidade
             .SelectMany(kv => kv.Value.Select(c =>
@@ -53,20 +54,14 @@ public sealed class Carregador
         Notas = Notas,
     };
 
-    private static async Task<List<Centro>> CarregarCentrosAsync(string caminho, List<string> notas)
+    private static async Task<List<Centro>> CarregarCentrosAsync(IUnitOfWork unitOfWork, List<string> notas)
     {
-        var t = await TabelaParquet.LerAsync(caminho);
-        var id = t.Inteiro("CentroId");
-        var codigo = t.Texto("Codigo");
-        var nome = t.Texto("Nome");
-        var ativo = t.Booleano("Ativo");
-        var pctInd = t.Inteiro("PorcentagemIndustria");
-        var pctRev = t.Inteiro("PorcentagemRevenda");
+        var linhas = await unitOfWork.CentroRepository.AsQueryable().ToListAsync();
 
-        var todos = new List<Centro>();
-        for (var i = 0; i < t.Linhas; i++)
-            todos.Add(new Centro((int)(id[i] ?? 0), codigo[i] ?? "", nome[i] ?? "",
-                ativo[i] ?? false, (int)(pctInd[i] ?? 0), (int)(pctRev[i] ?? 0)));
+        var todos = linhas
+            .Select(l => new Centro(l.CentroId, l.Codigo ?? "", l.Nome ?? "", l.Ativo,
+                l.PorcentagemIndustria, l.PorcentagemRevenda))
+            .ToList();
 
         var ativos = todos.Where(x => x.Ativo).ToList();
         var descartados = todos.Count - ativos.Count;
@@ -77,48 +72,37 @@ public sealed class Carregador
         return ativos;
     }
 
-    private static async Task<Dictionary<string, Produto>> CarregarProdutosAsync(string caminho)
+    private static async Task<Dictionary<string, Produto>> CarregarProdutosAsync(IUnitOfWork unitOfWork)
     {
-        var t = await TabelaParquet.LerAsync(caminho);
-        var id = t.Texto("produto_id");
-        var desc = t.Texto("descricao");
-        var lp = t.Inteiro("linha_produto_id");
-        var lote = t.Decimal("lote_minimo");
-        var largura = t.Decimal("largura");
-        var comprimento = t.Decimal("comprimento");
-        var espessura = t.Decimal("espessura");
-        var ativo = t.Booleano("ativo");
+        var linhas = await unitOfWork.ProdutoRepository.AsQueryable().ToListAsync();
 
         var mapa = new Dictionary<string, Produto>(StringComparer.Ordinal);
-        for (var i = 0; i < t.Linhas; i++)
+        foreach (var l in linhas)
         {
-            if (id[i] is not { } pid) continue;
-            mapa[pid] = new Produto(pid, desc[i] ?? "", (int)(lp[i] ?? 0),
-                lote[i] ?? 0, largura[i] ?? 0, comprimento[i] ?? 0, espessura[i] ?? 0,
-                ativo[i] ?? false);
+            if (l.ProdutoId is not { } pid) continue;
+            mapa[pid] = new Produto(pid, l.Descricao ?? "", l.LinhaProdutoId,
+                l.LoteMinimoChapas, l.LarguraMm, l.ComprimentoMm, l.EspessuraMm, l.Ativo);
         }
         return mapa;
     }
 
     private static async Task<Dictionary<string, IReadOnlyList<int>>> CarregarElegibilidadeAsync(
-        string caminho, List<Centro> centros, List<string> notas)
+        IUnitOfWork unitOfWork, List<Centro> centros, List<string> notas)
     {
-        var t = await TabelaParquet.LerAsync(caminho);
-        var produto = t.Texto("produto_id");
-        var centro = t.Inteiro("centro_id");
+        var linhas = await unitOfWork.ElegibilidadeRepository.AsQueryable().ToListAsync();
 
         var ativos = centros.Select(x => x.CentroId).ToHashSet();
         var mapa = new Dictionary<string, SortedSet<int>>(StringComparer.Ordinal);
         var foraDeCentroAtivo = 0;
 
-        for (var i = 0; i < t.Linhas; i++)
+        foreach (var l in linhas)
         {
-            if (produto[i] is not { } pid || centro[i] is not { } cid) continue;
-            if (!ativos.Contains((int)cid)) { foraDeCentroAtivo++; continue; }
+            if (l.ProdutoId is not { } pid) continue;
+            if (!ativos.Contains(l.CentroId)) { foraDeCentroAtivo++; continue; }
 
             if (!mapa.TryGetValue(pid, out var conjunto))
                 mapa[pid] = conjunto = [];
-            conjunto.Add((int)cid);
+            conjunto.Add(l.CentroId);
         }
 
         if (foraDeCentroAtivo > 0)
@@ -128,60 +112,41 @@ public sealed class Carregador
             StringComparer.Ordinal);
     }
 
-    private static async Task<List<LinhaCarteira>> CarregarCarteiraAsync(string caminho, List<string> notas)
+    private static async Task<List<LinhaCarteira>> CarregarCarteiraAsync(IUnitOfWork unitOfWork, List<string> notas)
     {
-        var t = await TabelaParquet.LerAsync(caminho);
-        var carteiraId = t.Inteiro("carteira_id");
-        var clienteId = t.Texto("cliente_id");
-        var clienteNome = t.Texto("cliente_nome");
-        var produtoId = t.Texto("produto_id");
-        var linhaProduto = t.Inteiro("linha_produto_id");
-        var volume = t.Decimal("volume_m3");
-        var dataDoc = t.Data("data_documento");
-        var incoterms = t.Texto("incoterms");
-        var segmento = t.Texto("segmento");
-        var centroOrig = t.Inteiro("centro_original");
+        var linhas = await unitOfWork.CarteiraRepository.AsQueryable().ToListAsync();
 
-        var linhas = new List<LinhaCarteira>(t.Linhas);
+        var resultado = new List<LinhaCarteira>(linhas.Count);
         var semVolume = 0;
 
-        for (var i = 0; i < t.Linhas; i++)
+        foreach (var l in linhas)
         {
-            var v = volume[i] ?? 0;
+            var v = (double)l.VolumeM3;
             if (v <= 0) { semVolume++; continue; }
 
-            linhas.Add(new LinhaCarteira(
-                carteiraId[i] ?? 0,
-                clienteId[i] ?? "",
-                clienteNome[i] ?? "",
-                produtoId[i] ?? "",
-                (int)(linhaProduto[i] ?? 0),
+            resultado.Add(new LinhaCarteira(
+                l.CarteiraId,
+                l.ClienteId ?? "",
+                l.ClienteNome ?? "",
+                l.ProdutoId ?? "",
+                l.LinhaProdutoId,
                 v,
-                dataDoc[i] ?? DateTime.MinValue,
-                (incoterms[i] ?? "").Trim().ToUpperInvariant(),
-                (segmento[i] ?? "").Trim(),
-                centroOrig[i] ?? 0));
+                l.DataDocumento ?? DateTime.MinValue,
+                (l.Incoterms ?? "").Trim().ToUpperInvariant(),
+                (l.Segmento ?? "").Trim(),
+                l.CentroOriginal));
         }
 
         if (semVolume > 0)
             notas.Add($"carteira: {semVolume} linha(s) com volume <= 0, descartadas");
 
-        return linhas;
+        return resultado;
     }
 
     private static async Task<List<CapacidadeSemanal>> CarregarCapacidadeAsync(
-        string caminho, List<Centro> centrosAtivos, List<string> notas)
+        IUnitOfWork unitOfWork, List<Centro> centrosAtivos, List<string> notas)
     {
-        var t = await TabelaParquet.LerAsync(caminho);
-        var centro = t.Inteiro("centro_id");
-        var linhaProducao = t.Inteiro("linha_producao_id");
-        var linhaProduto = t.Inteiro("linha_produto_id");
-        var semana = t.Inteiro("semana_iso");
-        var ano = t.Inteiro("ano");
-        var mes = t.Inteiro("mes");
-        var tipo = t.Inteiro("tipo_alocacao");
-        var qtd = t.Inteiro("quantidade");
-        var criacao = t.Data("data_criacao");
+        var linhas = await unitOfWork.CapacidadeRepository.AsQueryable().ToListAsync();
 
         var porChave = new Dictionary<(int, int, int, SemanaIso), (DateTime Criacao, long Qtd)>();
         var ativos = centrosAtivos.Select(c => c.CentroId).ToHashSet();
@@ -189,28 +154,24 @@ public sealed class Carregador
         var descartadosCentro = 0;
         var sobrepostos = 0;
 
-        for (var i = 0; i < t.Linhas; i++)
+        foreach (var l in linhas)
         {
-            if (tipo[i] != 1) { descartadosTipo++; continue; }
-            if (!ativos.Contains((int)(centro[i] ?? 0))) { descartadosCentro++; continue; }
-            if (semana[i] is not { } sem || qtd[i] is not { } q) continue;
+            if (l.TipoAlocacao != 1) { descartadosTipo++; continue; }
+            if (!ativos.Contains(l.CentroId)) { descartadosCentro++; continue; }
 
-            var anoPlano = (int)(ano[i] ?? 0);
-            var mesPlano = (int)(mes[i] ?? 0);
-            var anoSemana = (mesPlano >= 11 && sem <= 4) ? anoPlano + 1
-                          : (mesPlano <= 2 && sem >= 49) ? anoPlano - 1
-                          : anoPlano;
+            var anoSemana = (l.Mes >= 11 && l.SemanaIso <= 4) ? l.Ano + 1
+                          : (l.Mes <= 2 && l.SemanaIso >= 49) ? l.Ano - 1
+                          : l.Ano;
 
-            var chave = ((int)(centro[i] ?? 0), (int)(linhaProducao[i] ?? 0),
-                         (int)(linhaProduto[i] ?? 0), new SemanaIso(anoSemana, (int)sem));
-            var quando = criacao[i] ?? DateTime.MinValue;
+            var chave = (l.CentroId, l.LinhaProducaoId, l.LinhaProdutoId, new SemanaIso(anoSemana, l.SemanaIso));
+            var quando = l.DataCriacao ?? DateTime.MinValue;
 
             if (porChave.TryGetValue(chave, out var existente))
             {
                 sobrepostos++;
                 if (quando <= existente.Criacao) continue;
             }
-            porChave[chave] = (quando, q);
+            porChave[chave] = (quando, l.Quantidade);
         }
 
         if (descartadosTipo > 0)
@@ -227,5 +188,25 @@ public sealed class Carregador
                 g.Sum(x => x.Value.Qtd)))
             .OrderBy(x => x.Semana).ThenBy(x => x.CentroId).ThenBy(x => x.LinhaProdutoId)
             .ToList();
+    }
+}
+
+// Carrega e cacheia o master data (produtos/centros/elegibilidade/capacidade/carteira, hoje no banco)
+// em memória, evitando reconsultar o banco a cada chamada do motor de otimização.
+public sealed class Executor
+{
+    private Carregador? _cache;
+    private readonly SemaphoreSlim _trava = new(1, 1);
+
+    public async Task<Carregador> CarregarAsync(IUnitOfWork unitOfWork)
+    {
+        await _trava.WaitAsync();
+        try
+        {
+            if (_cache is not null) return _cache;
+            _cache = await Carregador.CarregarAsync(unitOfWork);
+            return _cache;
+        }
+        finally { _trava.Release(); }
     }
 }

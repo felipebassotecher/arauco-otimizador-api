@@ -8,10 +8,20 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Update="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="9.0.18" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Arauco.Otimizador.Common.Domain\Arauco.Otimizador.Common.Domain.csproj" />
     <ProjectReference Include="..\Arauco.Otimizador.Data.Entities\Arauco.Otimizador.Data.Entities.csproj" />
+    <ProjectReference Include="..\Arauco.Otimizador.Data.MySql\Arauco.Otimizador.Data.MySql.csproj" />
     <ProjectReference Include="..\Arauco.Otimizador.Service.OtimizadorService\Arauco.Otimizador.Service.OtimizadorService.csproj" />
-    <ProjectReference Include="..\Arauco.Otimizador.Service.OtimizadorV2Service\Arauco.Otimizador.Service.OtimizadorV2Service.csproj" />
   </ItemGroup>
 
 </Project>

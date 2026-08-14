@@ -1,6 +1,6 @@
-namespace Arauco.Otimizador.Data.Entities.OtimizadorV2;
+namespace Arauco.Otimizador.Data.Entities.Otimizador;
 
-public class PedidoV2NaoAlocado
+public class PedidoOtimizadoNaoAlocado
 {
     public string NaoAlocadoId { get; set; }
     public string ResultadoId { get; set; }

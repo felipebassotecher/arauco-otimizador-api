@@ -1,6 +1,6 @@
-namespace Arauco.Otimizador.Common.Domain.Models.OtimizadorV2;
+namespace Arauco.Otimizador.Common.Domain.Models.Otimizador;
 
-public class MoverPedidoV2Request
+public class MoverPedidoOtimizadoRequest
 {
     public string PedidoId { get; set; }
     public int AnoDestino { get; set; }

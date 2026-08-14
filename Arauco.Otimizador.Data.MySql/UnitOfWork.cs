@@ -81,76 +81,67 @@ public class UnitOfWork : IUnitOfWork
         }
     }
 
-    private IGenericRepository<Entities.Otimizador.OtimizacaoAlocacao> otimizacaoAlocacaoRepository;
-    public IGenericRepository<Entities.Otimizador.OtimizacaoAlocacao> OtimizacaoAlocacaoRepository
+    private IGenericRepository<Entities.Otimizador.PedidoOtimizado> pedidoOtimizadoRepository;
+    public IGenericRepository<Entities.Otimizador.PedidoOtimizado> PedidoOtimizadoRepository
     {
         get
         {
-            return this.otimizacaoAlocacaoRepository ??= new GenericRepository<DbContext, Entities.Otimizador.OtimizacaoAlocacao>(context);
+            return this.pedidoOtimizadoRepository ??= new GenericRepository<DbContext, Entities.Otimizador.PedidoOtimizado>(context);
         }
     }
 
-    private IGenericRepository<Entities.Otimizador.OtimizacaoNaoAlocado> otimizacaoNaoAlocadoRepository;
-    public IGenericRepository<Entities.Otimizador.OtimizacaoNaoAlocado> OtimizacaoNaoAlocadoRepository
+    private IGenericRepository<Entities.Otimizador.PedidoOtimizadoNaoAlocado> pedidoOtimizadoNaoAlocadoRepository;
+    public IGenericRepository<Entities.Otimizador.PedidoOtimizadoNaoAlocado> PedidoOtimizadoNaoAlocadoRepository
     {
         get
         {
-            return this.otimizacaoNaoAlocadoRepository ??= new GenericRepository<DbContext, Entities.Otimizador.OtimizacaoNaoAlocado>(context);
+            return this.pedidoOtimizadoNaoAlocadoRepository ??= new GenericRepository<DbContext, Entities.Otimizador.PedidoOtimizadoNaoAlocado>(context);
         }
     }
 
-    private IGenericRepository<Entities.Otimizador.OtimizacaoEmbarque> otimizacaoEmbarqueRepository;
-    public IGenericRepository<Entities.Otimizador.OtimizacaoEmbarque> OtimizacaoEmbarqueRepository
+    // Dataset (master data consumida pelo motor de otimização)
+    private IGenericRepository<Entities.Dataset.Centro> centroRepository;
+    public IGenericRepository<Entities.Dataset.Centro> CentroRepository
     {
         get
         {
-            return this.otimizacaoEmbarqueRepository ??= new GenericRepository<DbContext, Entities.Otimizador.OtimizacaoEmbarque>(context);
+            return this.centroRepository ??= new GenericRepository<DbContext, Entities.Dataset.Centro>(context);
         }
     }
 
-    private IGenericRepository<Entities.Otimizador.OtimizacaoOcupacao> otimizacaoOcupacaoRepository;
-    public IGenericRepository<Entities.Otimizador.OtimizacaoOcupacao> OtimizacaoOcupacaoRepository
+    private IGenericRepository<Entities.Dataset.Produto> produtoRepository;
+    public IGenericRepository<Entities.Dataset.Produto> ProdutoRepository
     {
         get
         {
-            return this.otimizacaoOcupacaoRepository ??= new GenericRepository<DbContext, Entities.Otimizador.OtimizacaoOcupacao>(context);
+            return this.produtoRepository ??= new GenericRepository<DbContext, Entities.Dataset.Produto>(context);
         }
     }
 
-    private IGenericRepository<Entities.Otimizador.OtimizacaoCriterio> otimizacaoCriterioRepository;
-    public IGenericRepository<Entities.Otimizador.OtimizacaoCriterio> OtimizacaoCriterioRepository
+    private IGenericRepository<Entities.Dataset.Elegibilidade> elegibilidadeRepository;
+    public IGenericRepository<Entities.Dataset.Elegibilidade> ElegibilidadeRepository
     {
         get
         {
-            return this.otimizacaoCriterioRepository ??= new GenericRepository<DbContext, Entities.Otimizador.OtimizacaoCriterio>(context);
+            return this.elegibilidadeRepository ??= new GenericRepository<DbContext, Entities.Dataset.Elegibilidade>(context);
         }
     }
 
-    // OtimizadorV2
-    private IGenericRepository<Entities.OtimizadorV2.CenarioOtimizacaoV2Resultado> cenarioOtimizacaoV2ResultadoRepository;
-    public IGenericRepository<Entities.OtimizadorV2.CenarioOtimizacaoV2Resultado> CenarioOtimizacaoV2ResultadoRepository
+    private IGenericRepository<Entities.Dataset.Capacidade> capacidadeRepository;
+    public IGenericRepository<Entities.Dataset.Capacidade> CapacidadeRepository
     {
         get
         {
-            return this.cenarioOtimizacaoV2ResultadoRepository ??= new GenericRepository<DbContext, Entities.OtimizadorV2.CenarioOtimizacaoV2Resultado>(context);
+            return this.capacidadeRepository ??= new GenericRepository<DbContext, Entities.Dataset.Capacidade>(context);
         }
     }
 
-    private IGenericRepository<Entities.OtimizadorV2.PedidoV2> pedidoV2Repository;
-    public IGenericRepository<Entities.OtimizadorV2.PedidoV2> PedidoV2Repository
+    private IGenericRepository<Entities.Dataset.Carteira> carteiraRepository;
+    public IGenericRepository<Entities.Dataset.Carteira> CarteiraRepository
     {
         get
         {
-            return this.pedidoV2Repository ??= new GenericRepository<DbContext, Entities.OtimizadorV2.PedidoV2>(context);
-        }
-    }
-
-    private IGenericRepository<Entities.OtimizadorV2.PedidoV2NaoAlocado> pedidoV2NaoAlocadoRepository;
-    public IGenericRepository<Entities.OtimizadorV2.PedidoV2NaoAlocado> PedidoV2NaoAlocadoRepository
-    {
-        get
-        {
-            return this.pedidoV2NaoAlocadoRepository ??= new GenericRepository<DbContext, Entities.OtimizadorV2.PedidoV2NaoAlocado>(context);
+            return this.carteiraRepository ??= new GenericRepository<DbContext, Entities.Dataset.Carteira>(context);
         }
     }
 

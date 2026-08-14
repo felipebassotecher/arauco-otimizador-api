@@ -8,6 +8,14 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="Scripts\Script004 - Insert Centro.sql" />
+    <None Remove="Scripts\Script005 - Insert Produto.sql" />
+    <None Remove="Scripts\Script006 - Insert Elegibilidade.sql" />
+    <None Remove="Scripts\Script007 - Insert Capacidade.sql" />
+    <None Remove="Scripts\Script008 - Alteracao Tamanho Id Pedido Otimizado.sql" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Update="appsettings.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
@@ -15,9 +23,14 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Scripts\Script001 - Otimizador.sql" />
-    <EmbeddedResource Include="Scripts\Script003 - Criterios.sql" />
-    <EmbeddedResource Include="Scripts\Script004 - OtimizacaoResultado.sql" />
-    <EmbeddedResource Include="Scripts\Script005 - OtimizacaoV2.sql" />
+    <EmbeddedResource Include="Scripts\Script002 - OtimizacaoResultado.sql" />
+    <EmbeddedResource Include="Scripts\Script003 - Datasets.sql" />
+    <EmbeddedResource Include="Scripts\Script004 - Insert Centro.sql" />
+    <EmbeddedResource Include="Scripts\Script005 - Insert Produto.sql" />
+    <EmbeddedResource Include="Scripts\Script006 - Insert Elegibilidade.sql" />
+    <EmbeddedResource Include="Scripts\Script007 - Insert Capacidade.sql" />
+    <EmbeddedResource Include="Scripts\Script009 - Alteracao Tamanho Id Pedido.sql" />
+    <EmbeddedResource Include="Scripts\Script008 - Alteracao Tamanho Id Pedido Otimizado.sql" />
   </ItemGroup>
 
   <ItemGroup>

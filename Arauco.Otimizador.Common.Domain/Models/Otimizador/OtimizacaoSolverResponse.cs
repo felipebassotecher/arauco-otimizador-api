@@ -7,5 +7,4 @@ public class OtimizacaoSolverResponse
     public double Objetivo { get; set; }
     public int Variaveis { get; set; }
     public int Binarias { get; set; }
-    public double GreedyInicialM3 { get; set; }
 }

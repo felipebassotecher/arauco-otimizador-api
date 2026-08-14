@@ -7,10 +7,7 @@ public class OtimizacaoResponse
     public IReadOnlyList<string> Horizonte { get; set; }
     public OtimizacaoSolverResponse Solver { get; set; }
     public OtimizacaoResumoResponse Resumo { get; set; }
-    public List<OtimizacaoOcupacaoResponse> Ocupacao { get; set; }
     public List<OtimizacaoAlocacaoResponse> Alocacoes { get; set; }
     public List<OtimizacaoNaoAlocadoResponse> NaoAlocado { get; set; }
-    public List<OtimizacaoEmbarqueResponse> Embarques { get; set; }
-    public List<OtimizacaoCriterioResponse> Criterios { get; set; }
     public List<string> Notas { get; set; }
 }

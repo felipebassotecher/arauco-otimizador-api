@@ -8,7 +8,6 @@
 
   <ItemGroup>
     <PackageReference Include="Google.OrTools" Version="9.15.6755" />
-    <PackageReference Include="Parquet.Net" Version="6.0.3" />
   </ItemGroup>
 
   <ItemGroup>
