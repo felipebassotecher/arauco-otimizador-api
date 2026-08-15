@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Arauco.Otimizador.Common.Domain\Arauco.Otimizador.Common.Domain.csproj" />
+    <ProjectReference Include="..\Arauco.Otimizador.Common.Gcp\Arauco.Otimizador.Common.Gcp.csproj" />
+    <ProjectReference Include="..\Arauco.Otimizador.Data.Entities\Arauco.Otimizador.Data.Entities.csproj" />
+    <ProjectReference Include="..\Arauco.Otimizador.Service.Base\Arauco.Otimizador.Service.Base.csproj" />
+    <ProjectReference Include="..\Techer.Common.Id\Techer.Common.Id.csproj" />
+  </ItemGroup>
+
+</Project>

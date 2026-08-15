@@ -71,6 +71,25 @@ public class UnitOfWork : IUnitOfWork
         }
     }
 
+    // Setup
+    private IGenericRepository<Entities.Setup.Setup> setupRepository;
+    public IGenericRepository<Entities.Setup.Setup> SetupRepository
+    {
+        get
+        {
+            return this.setupRepository ??= new GenericRepository<DbContext, Entities.Setup.Setup>(context);
+        }
+    }
+
+    private IGenericRepository<Entities.Setup.SetupOrdemImportancia> setupOrdemImportanciaRepository;
+    public IGenericRepository<Entities.Setup.SetupOrdemImportancia> SetupOrdemImportanciaRepository
+    {
+        get
+        {
+            return this.setupOrdemImportanciaRepository ??= new GenericRepository<DbContext, Entities.Setup.SetupOrdemImportancia>(context);
+        }
+    }
+
     // Otimizador
     private IGenericRepository<Entities.Otimizador.CenarioOtimizacaoResultado> cenarioOtimizacaoResultadoRepository;
     public IGenericRepository<Entities.Otimizador.CenarioOtimizacaoResultado> CenarioOtimizacaoResultadoRepository

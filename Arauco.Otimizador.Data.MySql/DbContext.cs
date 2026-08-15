@@ -22,6 +22,10 @@ public class DbContext : Microsoft.EntityFrameworkCore.DbContext
     // Pedido
     public DbSet<Entities.Pedido.Pedido> Pedido { get; set; }
 
+    // Setup
+    public DbSet<Entities.Setup.Setup> Setup { get; set; }
+    public DbSet<Entities.Setup.SetupOrdemImportancia> SetupOrdemImportancia { get; set; }
+
     // Otimizador
     public DbSet<Entities.Otimizador.CenarioOtimizacaoResultado> CenarioOtimizacaoResultado { get; set; }
     public DbSet<Entities.Otimizador.PedidoOtimizado> PedidoOtimizado { get; set; }
@@ -79,6 +83,22 @@ public class DbContext : Microsoft.EntityFrameworkCore.DbContext
             p.HasKey(x => x.PedidoId);
 
             p.Property(x => x.TipoFreteEnum).HasColumnName("TipoFreteId");
+        });
+
+        // Setup
+        modelBuilder.Entity<Entities.Setup.Setup>(s =>
+        {
+            s.HasKey(x => x.SetupId);
+
+            s.Property(x => x.TipoFreteEnum).HasColumnName("TipoFreteId");
+            s.Property(x => x.TipoClienteEnum).HasColumnName("TipoClienteId");
+        });
+
+        modelBuilder.Entity<Entities.Setup.SetupOrdemImportancia>(o =>
+        {
+            o.HasKey(x => x.Id);
+
+            o.Property(x => x.CriterioEnum).HasColumnName("CriterioOrdemId");
         });
 
         // Otimizador

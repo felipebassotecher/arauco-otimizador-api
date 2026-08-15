@@ -18,6 +18,10 @@ public interface IUnitOfWork
     // Pedido
     IGenericRepository<Pedido.Pedido> PedidoRepository { get; }
 
+    // Setup
+    IGenericRepository<Setup.Setup> SetupRepository { get; }
+    IGenericRepository<Setup.SetupOrdemImportancia> SetupOrdemImportanciaRepository { get; }
+
     // Otimizador
     IGenericRepository<Otimizador.CenarioOtimizacaoResultado> CenarioOtimizacaoResultadoRepository { get; }
     IGenericRepository<Otimizador.PedidoOtimizado> PedidoOtimizadoRepository { get; }

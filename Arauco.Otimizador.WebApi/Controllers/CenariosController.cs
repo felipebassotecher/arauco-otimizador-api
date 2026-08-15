@@ -1,8 +1,10 @@
 using Arauco.Otimizador.Common.Domain.Models.Cenario;
+using Arauco.Otimizador.Common.Domain.Models.Contrato;
 using Arauco.Otimizador.Common.Domain.Models.Criterio;
 using Arauco.Otimizador.Common.Domain.Models.Otimizador;
 using Arauco.Otimizador.Common.Domain.Models.Pedido;
 using Arauco.Otimizador.Common.Domain.Services.Cenario;
+using Arauco.Otimizador.Common.Domain.Services.Contrato;
 using Arauco.Otimizador.Common.Domain.Services.Otimizador;
 using Arauco.Otimizador.WebApi.Base.Controller;
 using Microsoft.AspNetCore.Mvc;
@@ -16,14 +18,17 @@ public class CenariosController : BaseController
 {
     private readonly ICenarioService cenarioService;
     private readonly IOtimizadorService otimizadorService;
+    private readonly IContratoService contratoService;
 
     public CenariosController(
         ICenarioService cenarioService,
         IOtimizadorService otimizadorService,
+        IContratoService contratoService,
         IServiceProvider serviceProvider) : base(serviceProvider)
     {
         this.cenarioService = cenarioService;
         this.otimizadorService = otimizadorService;
+        this.contratoService = contratoService;
     }
 
     // Registrado antes de [HttpGet("{id}")] para precedência de rota: segmento literal
@@ -132,5 +137,11 @@ public class CenariosController : BaseController
     public async Task<PedidoOtimizadoResponse> MoverPedidoOtimizadoAsync(string id, [FromBody] MoverPedidoOtimizadoRequest model)
     {
         return await otimizadorService.MoverPedidoAsync(id, model);
+    }
+
+    [HttpPost("{id}/enriquecer")]
+    public async Task<List<ContratoResponse>> EnriquecerAsync(string id)
+    {
+        return await contratoService.EnriquecerAsync(id);
     }
 }
