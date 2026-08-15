@@ -39,16 +39,4 @@ public class SetupsController : BaseController
     {
         return await setupService.AtualizarAsync(id, model);
     }
-
-    [HttpPost("{id}/clonar")]
-    public async Task<SetupDetalheResponse> ClonarAsync(string id)
-    {
-        return await setupService.ClonarAsync(id);
-    }
-
-    [HttpDelete("{id}")]
-    public async Task RemoverAsync(string id)
-    {
-        await setupService.RemoverAsync(id);
-    }
 }

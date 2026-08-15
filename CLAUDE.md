@@ -74,6 +74,25 @@ pelo desenvolvedor, no momento e no ambiente em que ele decidir. Não inclua
 `dotnet run --project Arauco.Otimizador.Deployment.Database` em scripts de build/deploy nem o
 dispare sem uma instrução explícita do usuário.
 
+### Alterações de schema — sempre em um script novo, nunca editando um script existente
+
+O DbUp (runner do `Arauco.Otimizador.Deployment.Database`) registra no banco, por ambiente, quais
+scripts de `Scripts/ScriptNNN - *.sql` já foram executados (pelo nome do arquivo) e **nunca reaplica**
+um script já marcado como executado. Isso vale mesmo que o ambiente em questão ainda não tenha sido
+atualizado com a versão mais recente do código — não há como saber, a partir do repositório, se um
+script específico já rodou em algum ambiente (dev/test/prod) ou não.
+
+Por isso, qualquer alteração de schema (nova coluna, remoção de coluna, mudança de tipo, novo
+índice/constraint etc.) em uma tabela que já tem um `CREATE TABLE` em um script anterior **deve** ser
+feita em um **novo script** (`ScriptNNN+1 - <Descrição>.sql`, próximo número sequencial), usando
+`ALTER TABLE`/`CREATE INDEX`/etc. — nunca editando o `CREATE TABLE` do script original. Editar um
+script já existente não tem efeito nos ambientes onde ele já foi aplicado: o DbUp não vê diferença
+nenhuma, e o schema real do banco fica dessincronizado do script no repositório. Veja
+`Script008`/`Script009 - Alteracao Tamanho Id Pedido*.sql` como exemplo do padrão correto (`ALTER
+TABLE` em script novo), e `Script011 - Ajuste Criterios Setup.sql` (que altera o `Setup` criado em
+`Script010`) como outro exemplo. Lembre de registrar o novo arquivo como `<EmbeddedResource>` no
+`.csproj` do projeto de deployment (ver item 9 do guia abaixo).
+
 ## Guia para Novos Recursos (onde implementar cada coisa)
 
 Este projeto é usado como base para múltiplos produtos. Ao adicionar um novo recurso de domínio

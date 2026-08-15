@@ -8,4 +8,6 @@ public class SetupOrdemImportancia
     public string SetupId { get; set; }
     public CriterioOrdemEnum CriterioEnum { get; set; }
     public int Ordem { get; set; }
+    public string? Descricao { get; set; }
+    public bool Ativo { get; set; }
 }

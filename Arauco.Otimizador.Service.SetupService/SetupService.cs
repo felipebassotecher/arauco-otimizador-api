@@ -13,6 +13,22 @@ namespace Arauco.Otimizador.Service.SetupService;
 
 public class SetupService : ServiceBase, ISetupService
 {
+    // Descrições padrão dos critérios de ordem de importância. São persistidas no banco junto com cada
+    // setup para que a interface possa explicar o critério sem depender de texto em código do front.
+    private static readonly Dictionary<CriterioOrdemEnum, string> DescricoesCriterio = new()
+    {
+        [CriterioOrdemEnum.PriorizarFreteCIF] =
+            "No momento de priorizar os pedidos, leva em consideração o tipo de frete do cliente, e, caso seja CIF, o pedido é priorizado para entrega com a maior antecedência possível.",
+        [CriterioOrdemEnum.PiorizarClienteRevenda] =
+            "No momento de priorizar os pedidos, identifica clientes do segmento Revenda e reduz a prioridade de entrega desses pedidos.",
+        [CriterioOrdemEnum.Antecipar] =
+            "Prioriza a antecipação das entregas, buscando alocar os pedidos nas semanas mais próximas possíveis, respeitando a data de entrega desejada.",
+        [CriterioOrdemEnum.AtenderDemanda] =
+            "Busca maximizar o volume total de demanda atendida no cenário, priorizando o cumprimento da quantidade solicitada.",
+        [CriterioOrdemEnum.PedidoMaisAntigo] =
+            "Considera a antiguidade do pedido como critério de desempate, dando prioridade aos pedidos registrados há mais tempo."
+    };
+
     public SetupService(IUnitOfWork unitOfWork, IEnvironmentVariables environmentVariables) : base(unitOfWork, environmentVariables)
     {
     }
@@ -51,15 +67,11 @@ public class SetupService : ServiceBase, ISetupService
             SetupId = await IdGenerator.New(),
             Nome = model.Nome,
             Descricao = model.Descricao,
-            PesoMinimoCarregamento = model.PesoMinimoCarregamento,
-            PercentualVariacaoMediaVenda = model.PercentualVariacaoMediaVenda,
-            QuantidadeMaximaTrocas = model.QuantidadeMaximaTrocas,
-            UtilizarToleranciaPeso = model.UtilizarToleranciaPeso,
-            PermitirCarregarAbaixoPesoMinimo = model.PermitirCarregarAbaixoPesoMinimo,
-            PriorizarTipoFrete = model.PriorizarTipoFrete,
-            TipoFreteEnum = model.TipoFrete,
-            PriorizarTipoCliente = model.PriorizarTipoCliente,
-            TipoClienteEnum = model.TipoCliente,
+            VolumeMinimoCarreta = model.VolumeMinimoCarreta,
+            VolumeMaximoCarreta = model.VolumeMaximoCarreta,
+            QuantidadeMinimaSkuPorLote = model.QuantidadeMinimaSkuPorLote,
+            CapacidadeMaximaRecebimentoCliente = model.CapacidadeMaximaRecebimentoCliente,
+            MixTipoFrete = model.MixTipoFrete,
             DataCriacao = DateTime.UtcNow,
             DataAlteracao = null
         };
@@ -81,15 +93,11 @@ public class SetupService : ServiceBase, ISetupService
 
         setup.Nome = model.Nome;
         setup.Descricao = model.Descricao;
-        setup.PesoMinimoCarregamento = model.PesoMinimoCarregamento;
-        setup.PercentualVariacaoMediaVenda = model.PercentualVariacaoMediaVenda;
-        setup.QuantidadeMaximaTrocas = model.QuantidadeMaximaTrocas;
-        setup.UtilizarToleranciaPeso = model.UtilizarToleranciaPeso;
-        setup.PermitirCarregarAbaixoPesoMinimo = model.PermitirCarregarAbaixoPesoMinimo;
-        setup.PriorizarTipoFrete = model.PriorizarTipoFrete;
-        setup.TipoFreteEnum = model.TipoFrete;
-        setup.PriorizarTipoCliente = model.PriorizarTipoCliente;
-        setup.TipoClienteEnum = model.TipoCliente;
+        setup.VolumeMinimoCarreta = model.VolumeMinimoCarreta;
+        setup.VolumeMaximoCarreta = model.VolumeMaximoCarreta;
+        setup.QuantidadeMinimaSkuPorLote = model.QuantidadeMinimaSkuPorLote;
+        setup.CapacidadeMaximaRecebimentoCliente = model.CapacidadeMaximaRecebimentoCliente;
+        setup.MixTipoFrete = model.MixTipoFrete;
         setup.DataAlteracao = DateTime.UtcNow;
 
         var ordensExistentes = await unitOfWork
@@ -103,61 +111,6 @@ public class SetupService : ServiceBase, ISetupService
         await unitOfWork.SaveAsync();
 
         return await _MapDetalheAsync(setup);
-    }
-
-    public async Task<SetupDetalheResponse> ClonarAsync(string setupId)
-    {
-        var origem = await _ObterSetupAsync(setupId);
-        var ordensOrigem = await unitOfWork
-            .SetupOrdemImportanciaRepository
-            .Where(o => o.SetupId == setupId)
-            .ToListAsync();
-
-        var novoSetup = new Setup
-        {
-            SetupId = await IdGenerator.New(),
-            Nome = $"{origem.Nome} (cópia)",
-            Descricao = origem.Descricao,
-            PesoMinimoCarregamento = origem.PesoMinimoCarregamento,
-            PercentualVariacaoMediaVenda = origem.PercentualVariacaoMediaVenda,
-            QuantidadeMaximaTrocas = origem.QuantidadeMaximaTrocas,
-            UtilizarToleranciaPeso = origem.UtilizarToleranciaPeso,
-            PermitirCarregarAbaixoPesoMinimo = origem.PermitirCarregarAbaixoPesoMinimo,
-            PriorizarTipoFrete = origem.PriorizarTipoFrete,
-            TipoFreteEnum = origem.TipoFreteEnum,
-            PriorizarTipoCliente = origem.PriorizarTipoCliente,
-            TipoClienteEnum = origem.TipoClienteEnum,
-            DataCriacao = DateTime.UtcNow,
-            DataAlteracao = null
-        };
-
-        unitOfWork.SetupRepository.Add(novoSetup);
-
-        foreach (var ordem in ordensOrigem.OrderBy(o => o.Ordem))
-        {
-            unitOfWork.SetupOrdemImportanciaRepository.Add(new SetupOrdemImportancia
-            {
-                SetupId = novoSetup.SetupId,
-                CriterioEnum = ordem.CriterioEnum,
-                Ordem = ordem.Ordem
-            });
-        }
-
-        await unitOfWork.SaveAsync();
-
-        return await _MapDetalheAsync(novoSetup);
-    }
-
-    public async Task RemoverAsync(string setupId)
-    {
-        var setup = await _ObterSetupAsync(setupId);
-
-        var ordens = await unitOfWork.SetupOrdemImportanciaRepository.Where(o => o.SetupId == setupId).ToListAsync();
-        unitOfWork.SetupOrdemImportanciaRepository.RemoveRange(ordens);
-
-        unitOfWork.SetupRepository.Remove(setup);
-
-        await unitOfWork.SaveAsync();
     }
 
     private async Task<Setup> _ObterSetupAsync(string setupId)
@@ -180,19 +133,17 @@ public class SetupService : ServiceBase, ISetupService
             Id = setup.SetupId,
             Nome = setup.Nome,
             Descricao = setup.Descricao,
-            PesoMinimoCarregamento = setup.PesoMinimoCarregamento,
-            PercentualVariacaoMediaVenda = setup.PercentualVariacaoMediaVenda,
-            QuantidadeMaximaTrocas = setup.QuantidadeMaximaTrocas,
-            UtilizarToleranciaPeso = setup.UtilizarToleranciaPeso,
-            PermitirCarregarAbaixoPesoMinimo = setup.PermitirCarregarAbaixoPesoMinimo,
-            PriorizarTipoFrete = setup.PriorizarTipoFrete,
-            TipoFrete = setup.TipoFreteEnum,
-            PriorizarTipoCliente = setup.PriorizarTipoCliente,
-            TipoCliente = setup.TipoClienteEnum,
+            VolumeMinimoCarreta = setup.VolumeMinimoCarreta,
+            VolumeMaximoCarreta = setup.VolumeMaximoCarreta,
+            QuantidadeMinimaSkuPorLote = setup.QuantidadeMinimaSkuPorLote,
+            CapacidadeMaximaRecebimentoCliente = setup.CapacidadeMaximaRecebimentoCliente,
+            MixTipoFrete = setup.MixTipoFrete,
             OrdemImportancia = ordens.Select(o => new SetupOrdemImportanciaResponse
             {
                 Criterio = o.CriterioEnum,
-                Ordem = o.Ordem
+                Ordem = o.Ordem,
+                Descricao = o.Descricao,
+                Ativo = o.Ativo
             }).ToList(),
             DataCriacao = setup.DataCriacao,
             DataAlteracao = setup.DataAlteracao
@@ -207,13 +158,8 @@ public class SetupService : ServiceBase, ISetupService
         if (model.OrdemImportancia == null || model.OrdemImportancia.Count == 0)
             throw new ApiException("Ordem de importância deve conter ao menos um critério");
 
+        _ValidarCamposOperacionais(model.VolumeMinimoCarreta, model.VolumeMaximoCarreta, model.MixTipoFrete);
         _ValidarOrdemImportancia(model.OrdemImportancia);
-
-        if (model.PriorizarTipoFrete && !model.TipoFrete.HasValue)
-            throw new ApiException("Tipo de frete é obrigatório quando 'Priorizar tipo de frete' está ativo");
-
-        if (model.PriorizarTipoCliente && !model.TipoCliente.HasValue)
-            throw new ApiException("Tipo de cliente é obrigatório quando 'Priorizar tipo de cliente' está ativo");
     }
 
     private static void _ValidarModelo(SetupAtualizacaoRequest model)
@@ -224,13 +170,23 @@ public class SetupService : ServiceBase, ISetupService
         if (model.OrdemImportancia == null || model.OrdemImportancia.Count == 0)
             throw new ApiException("Ordem de importância deve conter ao menos um critério");
 
+        _ValidarCamposOperacionais(model.VolumeMinimoCarreta, model.VolumeMaximoCarreta, model.MixTipoFrete);
         _ValidarOrdemImportancia(model.OrdemImportancia);
+    }
 
-        if (model.PriorizarTipoFrete && !model.TipoFrete.HasValue)
-            throw new ApiException("Tipo de frete é obrigatório quando 'Priorizar tipo de frete' está ativo");
+    private static void _ValidarCamposOperacionais(decimal? volumeMinimo, decimal? volumeMaximo, int? mixTipoFrete)
+    {
+        if (volumeMinimo.HasValue && volumeMinimo.Value < 0)
+            throw new ApiException("Volume mínimo da carreta não pode ser negativo");
 
-        if (model.PriorizarTipoCliente && !model.TipoCliente.HasValue)
-            throw new ApiException("Tipo de cliente é obrigatório quando 'Priorizar tipo de cliente' está ativo");
+        if (volumeMaximo.HasValue && volumeMaximo.Value < 0)
+            throw new ApiException("Volume máximo da carreta não pode ser negativo");
+
+        if (volumeMinimo.HasValue && volumeMaximo.HasValue && volumeMinimo.Value > volumeMaximo.Value)
+            throw new ApiException("Volume mínimo da carreta não pode ser maior que o volume máximo");
+
+        if (mixTipoFrete.HasValue && (mixTipoFrete.Value < 0 || mixTipoFrete.Value > 100))
+            throw new ApiException("Mix de tipo de frete deve estar entre 0 e 100");
     }
 
     private static void _ValidarOrdemImportancia(List<SetupOrdemImportanciaRequest> ordemImportancia)
@@ -261,7 +217,11 @@ public class SetupService : ServiceBase, ISetupService
             {
                 SetupId = setupId,
                 CriterioEnum = item.Criterio,
-                Ordem = item.Ordem
+                Ordem = item.Ordem,
+                Descricao = !string.IsNullOrWhiteSpace(item.Descricao)
+                    ? item.Descricao
+                    : DescricoesCriterio.GetValueOrDefault(item.Criterio),
+                Ativo = item.Ativo
             });
         }
     }

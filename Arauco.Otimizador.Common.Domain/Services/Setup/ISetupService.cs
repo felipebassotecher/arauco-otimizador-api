@@ -8,6 +8,4 @@ public interface ISetupService
     Task<SetupDetalheResponse> ObterAsync(string setupId);
     Task<SetupCriacaoResponse> CriarAsync(SetupCriacaoRequest model);
     Task<SetupDetalheResponse> AtualizarAsync(string setupId, SetupAtualizacaoRequest model);
-    Task<SetupDetalheResponse> ClonarAsync(string setupId);
-    Task RemoverAsync(string setupId);
 }

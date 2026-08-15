@@ -8,5 +8,10 @@ public class SetupOrdemImportanciaResponse
 {
     [JsonConverter(typeof(StringEnumConverter))]
     public CriterioOrdemEnum Criterio { get; set; }
+
     public int Ordem { get; set; }
+
+    public string? Descricao { get; set; }
+
+    public bool Ativo { get; set; }
 }

@@ -32,6 +32,8 @@
     <EmbeddedResource Include="Scripts\Script009 - Alteracao Tamanho Id Pedido.sql" />
     <EmbeddedResource Include="Scripts\Script008 - Alteracao Tamanho Id Pedido Otimizado.sql" />
     <EmbeddedResource Include="Scripts\Script010 - Setup.sql" />
+    <EmbeddedResource Include="Scripts\Script011 - Ajuste Criterios Setup.sql" />
+    <EmbeddedResource Include="Scripts\Script012 - Remove Campos Peso Setup.sql" />
   </ItemGroup>
 
   <ItemGroup>

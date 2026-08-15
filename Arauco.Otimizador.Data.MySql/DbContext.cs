@@ -89,9 +89,6 @@ public class DbContext : Microsoft.EntityFrameworkCore.DbContext
         modelBuilder.Entity<Entities.Setup.Setup>(s =>
         {
             s.HasKey(x => x.SetupId);
-
-            s.Property(x => x.TipoFreteEnum).HasColumnName("TipoFreteId");
-            s.Property(x => x.TipoClienteEnum).HasColumnName("TipoClienteId");
         });
 
         modelBuilder.Entity<Entities.Setup.SetupOrdemImportancia>(o =>
@@ -99,6 +96,7 @@ public class DbContext : Microsoft.EntityFrameworkCore.DbContext
             o.HasKey(x => x.Id);
 
             o.Property(x => x.CriterioEnum).HasColumnName("CriterioOrdemId");
+            o.Property(x => x.Descricao).HasColumnType("VARCHAR(500)");
         });
 
         // Otimizador
