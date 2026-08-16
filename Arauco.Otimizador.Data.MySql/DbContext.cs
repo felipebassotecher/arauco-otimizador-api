@@ -74,7 +74,6 @@ public class DbContext : Microsoft.EntityFrameworkCore.DbContext
             d.HasKey(x => x.DemandaId);
 
             d.Property(p => p.TipoFreteEnum).HasColumnName("TipoFreteId");
-            d.Property(p => p.SegmentoEnum).HasColumnName("SegmentoId");
         });
 
         // Pedido

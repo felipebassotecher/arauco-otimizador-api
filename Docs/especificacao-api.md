@@ -194,7 +194,7 @@ inteiro**. Valores fora dele são rejeitados com `400 Bad Request`.
 | Valor (int) | Membro | Descrição |
 |---|---|---|
 | `1` | `TipoFrete` | Critério "Tipo de Frete" — compara contra `CIF`/`FOB`. |
-| `2` | `TipoCliente` | Critério "Tipo de Cliente" — compara contra o campo `segmento` da demanda (`INDUSTRIA`/`REVENDA`). |
+| `2` | `TipoCliente` | Critério "Tipo de Cliente" — compara contra um valor derivado (`INDUSTRIA`/`REVENDA`) do campo `segmento` da demanda: `INDUSTRIA` se o texto do segmento contiver "IND", `REVENDA` caso contrário (mesma heurística do projeto de referência `otimizador-teste-entrega`). Os segmentos reais da extração do ADC (`ESPECIALISTA`, `MAYORISTA`, `EXPORTAÇÃO` etc.) não contêm "IND", então hoje toda demanda real resolve para `REVENDA` — heurística preservada de propósito para manter paridade com a referência; nenhum mapeamento oficial segmento→Indústria/Revenda existe ainda para esses valores. |
 
 #### `TipoCriterioEnum`
 
@@ -364,25 +364,37 @@ a última integração — ver §6):
 
 ### 3.11 `DemandaResponse`
 
-Retornado em `GET /demandas?cenarioId={id}` e `POST /demandas/upload`. **Ganhou o campo `segmento`**
-desde a última integração (ver §6):
+Retornado em `GET /demandas?cenarioId={id}` e `POST /demandas/upload`. Os campos espelham a extração
+"carteira em aberto" do ADC (mesmo formato de `otimizador-teste-entrega/sql/extracao/demanda.sql`, ver
+§5 item 4):
 
 ```json
 {
   "id": "X9Y8Z7",
+  "carteiraId": "number",
   "cliente": "string",
+  "clienteNome": "string",
   "material": "string",
+  "linhaProdutoId": "number",
   "volume": "number",
+  "dataDocumento": "Date (ISO 8601)",
   "dataEntregaDesejada": "Date (ISO 8601)",
   "tipoFrete": "string",
-  "segmento": "string"
+  "segmento": "string",
+  "centroOriginal": "number"
 }
 ```
 
-> `tipoFrete` e `segmento` são texto livre, não enums fechados. Por convenção, `tipoFrete` é
-> `CIF`/`FOB`; `segmento` reconhecido pelo motor de otimização é `INDUSTRIA`/`REVENDA` (qualquer
-> variação de `"INDUSTRIA"` normaliza para `Industria`, o resto vira `Revenda`) — ver critério "Tipo
-> de Cliente" em §3.1/§2.3.
+> `tipoFrete` e `segmento` são texto livre, não enums fechados. `tipoFrete` é derivado do `incoterms` do
+> arquivo (`CIF` se começar com "CIF", `FOB` caso contrário — CIP/DAP/FCA também caem em `FOB` por essa
+> regra, mesmo critério do motor de otimização). `segmento` é o texto bruto do arquivo (`ESPECIALISTA`,
+> `MAYORISTA`, `EXPORTAÇÃO` etc.) — ver critério "Tipo de Cliente" em §3.1/§2.3 para como ele é
+> normalizado para `INDUSTRIA`/`REVENDA`. `dataDocumento` é a data do documento de origem (usada pelo
+> motor de otimização para o critério de antiguidade); `dataEntregaDesejada` é a data solicitada de
+> remessa pelo cliente (usada apenas pelo fluxo simples de agrupamento por semana — `POST /processar`;
+> o motor CP-SAT não a utiliza, mesma decisão do projeto de referência). `centroOriginal` é o centro
+> onde o pedido está hoje na carteira real — meramente informativo, o motor de otimização decide o
+> centro de destino livremente e ignora este campo.
 
 ### 3.12 `DemandaUploadRequest`
 
@@ -650,11 +662,19 @@ Corpo padrão de erro (`ErrorBuilder`, aplicado globalmente):
    cliente+produto+planta+semana, `PedidoOtimizado`/`PedidoOtimizadoResponse`) são independentes —
    rodar um não afeta os pedidos do outro. Confirmar com o produto qual fluxo a tela deve priorizar
    (ou se ambos continuam coexistindo na UI).
-4. **Formato CSV de demandas**: `Cliente,Material,Volume,DataEntrega,TipoFrete,Segmento`. `TipoFrete`
-   é case-insensitive, normalizado para `CIF`/`FOB` (qualquer valor diferente de `CIF` vira `FOB`).
-   `Segmento` é a **6ª coluna, opcional** — CSVs de 5 colunas continuam funcionando, assumindo
-   `REVENDA`; qualquer variação de `"INDUSTRIA"` vira `Industria`, o resto vira `Revenda`. Nenhuma das
-   duas colunas é validada contra lista fechada pela API.
+4. **Formato CSV de demandas**: extração "carteira em aberto" do ADC, mesmo formato de
+   `otimizador-teste-entrega/sql/extracao/demanda.sql` (projeto de referência usado desde o início).
+   Arquivo com cabeçalho; colunas identificadas pelo nome (qualquer ordem), case-insensitive:
+   `carteira_id, cliente_id, cliente_nome, produto_id, linha_produto_id, volume_m3, data_documento,
+   incoterms, segmento, centro_original, data_solicitacao_remessa`. As demais colunas da extração real
+   (`mes, ano, carteira_m3, faturado_m3, status_credito, tipo_documento_venda, numero_pedido, vendedor,
+   regiao, prioridade_remessa`) podem estar presentes no arquivo mas são ignoradas — o motor de
+   otimização portado da referência não as consome (ver `analise/CONTINUIDADE.md` do projeto de
+   referência). `cliente_id`/`produto_id`/`volume_m3`/`data_documento` são obrigatórias; uma linha sem
+   alguma delas, com `volume_m3 <= 0` ou com `data_documento` inválida é descartada silenciosamente
+   (mesmo critério do `Carregador` do motor). `data_solicitacao_remessa` ausente cai para
+   `data_documento`. Campos entre aspas com vírgula (ex.: nome de cliente `"Empresa, S.A."`) são
+   suportados (RFC 4180). `incoterms` deriva `tipoFrete` (`CIF` se começar com "CIF", senão `FOB`).
 5. **`pinado`**: em ambos os fluxos, pedidos movidos manualmente permanecem fixos numa nova execução
    do algoritmo correspondente.
 6. **`primeiraSemana`/`ultimaSemana`**: derivados dos pedidos do fluxo **simples** (`Pedido`), não do

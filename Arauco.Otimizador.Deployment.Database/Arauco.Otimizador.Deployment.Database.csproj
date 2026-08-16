@@ -34,6 +34,7 @@
     <EmbeddedResource Include="Scripts\Script010 - Setup.sql" />
     <EmbeddedResource Include="Scripts\Script011 - Ajuste Criterios Setup.sql" />
     <EmbeddedResource Include="Scripts\Script012 - Remove Campos Peso Setup.sql" />
+    <EmbeddedResource Include="Scripts\Script013 - Demanda Formato Carteira.sql" />
   </ItemGroup>
 
   <ItemGroup>

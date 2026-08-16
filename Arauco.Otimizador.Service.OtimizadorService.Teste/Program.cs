@@ -61,12 +61,17 @@ static async Task RodarCenarioAsync(Carregador carregadorBase)
         {
             DemandaId = $"TST{i:D3}",
             CenarioId = "TESTE1",
+            CarteiraId = i + 1,
             Cliente = $"CLIENTE_TESTE_{i + 1}",
+            ClienteNome = $"Cliente Teste {i + 1}",
             Material = produto.ProdutoId,
+            LinhaProdutoId = produto.LinhaProdutoId,
             Volume = (decimal)(15 + rnd.NextDouble() * 30),
+            DataDocumento = DateTime.Today.AddDays(-i * 5),
             DataEntregaDesejada = DateTime.Today.AddDays(7 + i * 3),
             TipoFreteEnum = i % 2 == 0 ? TipoFreteEnum.CIF : TipoFreteEnum.FOB,
-            SegmentoEnum = i % 3 == 0 ? SegmentoEnum.Industria : SegmentoEnum.Revenda
+            Segmento = i % 3 == 0 ? "INDUSTRIA" : "REVENDA",
+            CentroOriginal = 0
         });
     }
 
@@ -77,7 +82,7 @@ static async Task RodarCenarioAsync(Carregador carregadorBase)
         new() { CenarioId = "TESTE1", CriterioChave = "tipoCliente", Operador = OperadorCriterioEnum.IgualA, Valor = "INDUSTRIA", Peso = 25 }
     };
 
-    var carteira = DemandaParaCarteiraMapper.Mapear(demandas, carregadorBase.Produtos, carregadorBase.Elegibilidade);
+    var carteira = DemandaParaCarteiraMapper.Mapear(demandas, carregadorBase.Produtos);
     var dados = carregadorBase.ComCarteira(carteira);
 
     var config = new Config { Horizonte = 4, LimiteSegundos = 15 };

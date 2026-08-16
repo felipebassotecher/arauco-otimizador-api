@@ -138,12 +138,17 @@ public class CenarioService : ServiceBase, ICenarioService
         {
             DemandaId = IdGenerator.NewSync(),
             CenarioId = cenarioId,
+            CarteiraId = linha.CarteiraId,
             Cliente = linha.Cliente,
+            ClienteNome = linha.ClienteNome,
             Material = linha.Material,
+            LinhaProdutoId = linha.LinhaProdutoId,
             Volume = linha.Volume,
+            DataDocumento = linha.DataDocumento,
             DataEntregaDesejada = linha.DataEntrega,
             TipoFreteEnum = linha.TipoFrete,
-            SegmentoEnum = linha.Segmento
+            Segmento = linha.Segmento,
+            CentroOriginal = linha.CentroOriginal
         }).ToList();
 
         unitOfWork.DemandaRepository.AddRange(demandas);

@@ -47,7 +47,7 @@ public class OtimizadorService : ServiceBase, IOtimizadorService
 
         var carregador = await _executor.CarregarAsync(unitOfWork);
 
-        var carteira = DemandaParaCarteiraMapper.Mapear(demandas, carregador.Produtos, carregador.Elegibilidade);
+        var carteira = DemandaParaCarteiraMapper.Mapear(demandas, carregador.Produtos);
         var dados = carregador.ComCarteira(carteira);
 
         var config = CriarConfig(request);

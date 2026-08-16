@@ -49,12 +49,17 @@ public class DemandaService : ServiceBase, IDemandaService
             {
                 DemandaId = await IdGenerator.New(),
                 CenarioId = model.CenarioId,
+                CarteiraId = linha.CarteiraId,
                 Cliente = linha.Cliente,
+                ClienteNome = linha.ClienteNome,
                 Material = linha.Material,
+                LinhaProdutoId = linha.LinhaProdutoId,
                 Volume = linha.Volume,
+                DataDocumento = linha.DataDocumento,
                 DataEntregaDesejada = linha.DataEntrega,
                 TipoFreteEnum = linha.TipoFrete,
-                SegmentoEnum = linha.Segmento
+                Segmento = linha.Segmento,
+                CentroOriginal = linha.CentroOriginal
             });
         }
 
@@ -70,12 +75,17 @@ public class DemandaService : ServiceBase, IDemandaService
         return new DemandaResponse
         {
             Id = demanda.DemandaId,
+            CarteiraId = demanda.CarteiraId,
             Cliente = demanda.Cliente,
+            ClienteNome = demanda.ClienteNome,
             Material = demanda.Material,
+            LinhaProdutoId = demanda.LinhaProdutoId,
             Volume = demanda.Volume,
+            DataDocumento = demanda.DataDocumento,
             DataEntregaDesejada = demanda.DataEntregaDesejada,
             TipoFrete = demanda.TipoFreteEnum.ToString(),
-            Segmento = demanda.SegmentoEnum.ToString()
+            Segmento = demanda.Segmento,
+            CentroOriginal = demanda.CentroOriginal
         };
     }
 }

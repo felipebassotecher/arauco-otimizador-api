@@ -124,7 +124,11 @@ Responsável pelo gerenciamento das demandas importadas via CSV.
 - `GET /demandas` requer o query parameter `cenarioId`.
 - `POST /demandas/upload` recebe o identificador do cenário e o conteúdo textual do CSV. A API deve:
   1. Substituir as demandas existentes do cenário pelas novas.
-  2. Fazer o parse das linhas no formato: `Cliente,Material,Volume,DataEntrega,TipoFrete`.
+  2. Fazer o parse das linhas no formato "carteira em aberto" do ADC (com cabeçalho): `carteira_id,
+     cliente_id, cliente_nome, produto_id, linha_produto_id, volume_m3, data_documento, incoterms,
+     segmento, centro_original, data_solicitacao_remessa` (colunas em qualquer ordem; demais colunas da
+     extração, ex. `mes`/`ano`/`carteira_m3`/`faturado_m3`/`status_credito`, são aceitas mas ignoradas —
+     ver `DemandaCsvParser`).
   3. Retornar a nova lista de demandas.
 
 ---
@@ -394,7 +398,7 @@ Retornado em `GET /conta/profile`.
 4. **`pinado`**: pedidos movidos manualmente devem permanecer fixos em uma nova reexecução do algoritmo.
 5. **`primeiraSemana` / `ultimaSemana`**: devem ser derivados dos pedidos processados do cenário e retornados no `CenarioResponse`.
 6. **`ocupacaoPlanta`**: métrica usada no gráfico de ocupação. Hoje o mock retorna dados estáticos; a API deve calcular com base na capacidade da planta e nos pedidos alocados.
-7. **Formato CSV de demandas**: `Cliente,Material,Volume,DataEntrega,TipoFrete`. O tipo de frete é case-insensitive (`CIF`/`FOB`), defaultando para `FOB`.
+7. **Formato CSV de demandas**: extração da "carteira em aberto" do ADC, com cabeçalho — ver `DemandaCsvParser`. `incoterms` é case-insensitive (`CIF`/`FOB`), defaultando para `FOB`; `segmento` é texto livre (não mais um enum fechado Industria/Revenda).
 8. **Autenticação**: toda requisição deve passar pelo middleware de autenticação, validando o JWT Bearer enviado pelo front.
 
 ---
