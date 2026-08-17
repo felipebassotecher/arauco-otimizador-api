@@ -1,5 +1,5 @@
 using Arauco.Otimizador.Common.Domain.Enums.Otimizador;
-using Arauco.Otimizador.Data.Entities.Cenario;
+using Arauco.Otimizador.Common.Domain.Enums.Setup;
 using Arauco.Otimizador.Service.OtimizadorService.Capacidade;
 using Arauco.Otimizador.Service.OtimizadorService.Dados;
 using Google.OrTools.Sat;
@@ -26,19 +26,17 @@ public sealed record ResultadoOtimizacao(
     int Binarias,
     IReadOnlyList<Embarque> Embarques);
 
-// Modelo CP-SAT do motor: restrições de carreta, com o objetivo ponderado pelos critérios
-// personalizados do cenário (CenarioCriterio) em vez de pesos fixos no código. Os itens já chegam
-// com o volume pinado descontado (ver OtimizadorService.DescontarPinados).
+// Modelo CP-SAT do motor: restrições de carreta e de capacidade por bucket, com o objetivo em modo
+// Ranking — pesos derivados da ordem de importância do setup vinculado ao cenário (ver Objetivo.cs).
+// Os itens já chegam com o volume pinado descontado (ver OtimizadorService.DescontarPinados).
 //
-// Cada item (= cada demanda, ver Preparacao.cs) é alocado inteiro em no máximo um bucket (centro,
-// semana) — nunca dividido entre vários. Isso garante que uma demanda gere, ao final, no máximo um
-// pedido: ou o item inteiro cai em um único bucket, ou fica inteiro como "não alocado" (slack).
+// Cada item (= cliente+produto agrupado, ver Preparacao.cs) é indivisível (um único bucket,
+// tudo-ou-nada) quando seu piso é igual ao volume total, ou divisível (pode se espalhar por vários
+// buckets simultaneamente, nunca abaixo do piso em cada um) quando o piso é menor que o volume —
+// mesmo modelo do projeto de referência otimizador-teste-entrega.
 public static class Otimizacao
 {
     public const int Escala = 10;
-    private const int BaseMultiplicador = 100;
-    private const int MultiplicadorMinimo = 1;
-    private const int MultiplicadorMaximo = 400;
 
     private static long Escalar(double m3) => (long)Math.Round(m3 * Escala);
 
@@ -46,22 +44,38 @@ public static class Otimizacao
         Config config,
         IReadOnlyList<Item> itens,
         CapacidadeHorizonte capacidade,
-        IReadOnlyList<CenarioCriterio> criterios,
+        IReadOnlyList<TermoObjetivo> termos,
         List<string> notas)
     {
         var semanas = capacidade.Semanas.Count;
         var itensPorIndice = itens.ToDictionary(i => i.Indice);
+        var prioridadeAntiguidade = CalcularPrioridadeAntiguidade(itens);
 
-        var multiplicadores = itens.ToDictionary(
-            i => i.Indice,
-            i => Math.Clamp(BaseMultiplicador + AvaliadorCriterios.SomarPesos(i, criterios), MultiplicadorMinimo, MultiplicadorMaximo));
+        var pesos = termos.ToDictionary(t => t.Criterio, t => t.Peso);
+        // "atender" nunca fica com peso 0, mesmo que o critério esteja inativo/ausente no setup — sem
+        // isso o solver pode descartar demanda de propósito com capacidade sobrando, porque nada no
+        // objetivo custaria isso (mesma armadilha documentada no projeto de referência,
+        // Modelo/Objetivo.cs de lá — Diagnosticar).
+        var pesoAtender = Math.Max(pesos.GetValueOrDefault(CriterioOrdemEnum.AtenderDemanda), 1);
+        var pesoAntiguidade = pesos.GetValueOrDefault(CriterioOrdemEnum.PedidoMaisAntigo);
+        var pesoIndustria = pesos.GetValueOrDefault(CriterioOrdemEnum.PiorizarClienteRevenda);
+        var pesoAtraso = pesos.GetValueOrDefault(CriterioOrdemEnum.Antecipar);
+        var pesoMixFrete = pesos.GetValueOrDefault(CriterioOrdemEnum.PriorizarFreteCIF);
+
+        var custoNaoAtender = itens.ToDictionary(
+            it => it.Indice,
+            it => pesoAtender
+                  + pesoAntiguidade * prioridadeAntiguidade.GetValueOrDefault(it.Indice, 1)
+                  + (it.Industria ? pesoIndustria : 0));
 
         var modelo = new CpModel();
 
         var y = new Dictionary<(int, int, int), BoolVar>();
+        var x = new Dictionary<(int, int, int), IntVar>();
         var slack = new Dictionary<int, IntVar>();
         var contribuicao = new Dictionary<(int, int, int), LinearExpr>();
         var itensAtivos = 0;
+        var itensDivisiveis = 0;
 
         foreach (var item in itens)
         {
@@ -70,6 +84,9 @@ public static class Otimizacao
 
             itensAtivos++;
             var i = item.Indice;
+            var piso = Escalar(item.Piso);
+            var divisivel = piso < volume;
+            if (divisivel) itensDivisiveis++;
 
             var baldes = new List<(int Centro, int Semana)>();
             foreach (var centro in item.CentrosElegiveis)
@@ -85,6 +102,7 @@ public static class Otimizacao
 
             slack[i] = modelo.NewIntVar(0, volume, $"slack_{i}");
 
+            var contribuicoesItem = new List<LinearExpr>();
             var escolhas = new List<BoolVar>();
 
             foreach (var (centro, s) in baldes)
@@ -92,15 +110,54 @@ public static class Otimizacao
                 var vy = modelo.NewBoolVar($"y_{i}_{centro}_{s}");
                 y[(i, centro, s)] = vy;
                 escolhas.Add(vy);
-                contribuicao[(i, centro, s)] = LinearExpr.Term(vy, volume);
+
+                LinearExpr contrib;
+                if (divisivel)
+                {
+                    var vx = modelo.NewIntVar(0, volume, $"x_{i}_{centro}_{s}");
+                    modelo.Add(vx <= vy * volume);
+                    modelo.Add(vx >= vy * piso);
+                    x[(i, centro, s)] = vx;
+                    contrib = vx;
+                }
+                else
+                {
+                    contrib = LinearExpr.Term(vy, volume);
+                }
+
+                contribuicao[(i, centro, s)] = contrib;
+                contribuicoesItem.Add(contrib);
             }
 
-            modelo.Add(LinearExpr.Sum(escolhas) <= 1);
-            modelo.Add(LinearExpr.Sum(escolhas) * volume + slack[i] == volume);
+            if (!divisivel)
+                modelo.Add(LinearExpr.Sum(escolhas) <= 1);
+
+            modelo.Add(LinearExpr.Sum(contribuicoesItem) + slack[i] == volume);
         }
 
-        notas.Add($"modelo: {itensAtivos} item(ns) — cada um alocado inteiro em no máximo um "
-                  + "bucket (centro, semana), sem divisão (1 demanda gera no máximo 1 pedido)");
+        notas.Add($"modelo: {itensAtivos} item(ns) — {itensDivisiveis} divisível(eis) entre vários "
+                  + $"buckets (centro, semana) respeitando o piso, {itensAtivos - itensDivisiveis} "
+                  + "indivisível(eis) (tudo-ou-nada)");
+
+        // Restrição de capacidade: o volume total alocado em cada bucket (centro, linha produto,
+        // semana) nunca pode ultrapassar a capacidade declarada nele.
+        var contribuicaoPorBucketCapacidade = new Dictionary<(int Centro, int LinhaProduto, int Semana), List<LinearExpr>>();
+        foreach (var ((i, centro, s), expr) in contribuicao)
+        {
+            var chave = (centro, itensPorIndice[i].LinhaProdutoId, s);
+            if (!contribuicaoPorBucketCapacidade.TryGetValue(chave, out var lista))
+                contribuicaoPorBucketCapacidade[chave] = lista = [];
+            lista.Add(expr);
+        }
+
+        foreach (var (chave, parcelas) in contribuicaoPorBucketCapacidade)
+        {
+            var disponivel = Escalar(capacidade.Disponivel(chave.Centro, chave.LinhaProduto, chave.Semana));
+            modelo.Add(LinearExpr.Sum(parcelas) <= disponivel);
+        }
+
+        notas.Add($"capacidade: {contribuicaoPorBucketCapacidade.Count} bucket(s) (centro, linha "
+                  + "produto, semana) com teto de volume alocado");
 
         // Carreta (m³ mín/máx por embarque) + limite de recebimento por cliente/semana.
         var carretas = new Dictionary<(string Cliente, int Centro, int Semana), IntVar>();
@@ -180,12 +237,58 @@ public static class Otimizacao
             }
         }
 
-        // Objetivo: minimizar o volume não atendido, ponderado pelo score dos critérios personalizados
-        // que casam com cada item — item com mais peso acumulado custa mais caro deixar sem atender.
-        var termoAtender = LinearExpr.Sum(slack.Select(kv =>
-            LinearExpr.Term(kv.Value, multiplicadores[kv.Key])));
+        // Objetivo, modo Ranking — soma dos termos ativos do setup, cada um ponderado por
+        // Objetivo.CalcularPesos (BaseRanking^(N-ordem)).
+        var objetivoTermos = new List<LinearExpr> { LinearExpr.Sum(slack.Values) * pesoAtender };
 
-        modelo.Minimize(termoAtender);
+        if (pesoAntiguidade > 0 && slack.Count > 0)
+            objetivoTermos.Add(LinearExpr.Sum(slack.Select(kv =>
+                kv.Value * (pesoAntiguidade * prioridadeAntiguidade.GetValueOrDefault(kv.Key, 1)))));
+
+        if (pesoIndustria > 0)
+        {
+            var slackIndustria = slack
+                .Where(kv => itensPorIndice[kv.Key].Industria)
+                .Select(kv => (LinearExpr)kv.Value)
+                .ToList();
+
+            if (slackIndustria.Count > 0)
+                objetivoTermos.Add(LinearExpr.Sum(slackIndustria) * pesoIndustria);
+        }
+
+        if (pesoAtraso > 0 && contribuicao.Count > 0)
+            objetivoTermos.Add(LinearExpr.Sum(contribuicao.Select(kv => kv.Value * (long)kv.Key.Item3)) * pesoAtraso);
+
+        var mixFreteAtivo = config.MixFrete.Ativo && pesoMixFrete > 0 && contribuicao.Count > 0;
+        IntVar? mixFreteBaixo = null;
+        IntVar? mixFreteAlto = null;
+
+        if (mixFreteAtivo)
+        {
+            // Desvio global (não por bucket, por simplicidade) entre o volume CIF alocado no
+            // horizonte inteiro e o alvo do setup — folgaBaixo/folgaAlto aproximam |CIF - alvo*total|
+            // em décimos de m³ (escala ×1000 só na comparação, para manter o coeficiente do alvo
+            // inteiro sem perder precisão).
+            var alvoCifMilesimos = (long)Math.Round(config.MixFrete.AlvoCif * 1000);
+            var volumeCifExpr = LinearExpr.Sum(contribuicao
+                .Where(kv => itensPorIndice[kv.Key.Item1].Cif)
+                .Select(kv => kv.Value));
+            var volumeAlocadoExpr = LinearExpr.Sum(contribuicao.Values);
+            var tetoDesvio = Escalar(itens.Sum(it => it.VolumeM3));
+
+            mixFreteBaixo = modelo.NewIntVar(0, tetoDesvio, "mixFreteBaixo");
+            mixFreteAlto = modelo.NewIntVar(0, tetoDesvio, "mixFreteAlto");
+
+            modelo.Add(mixFreteAlto * 1000 >= volumeCifExpr * 1000 - volumeAlocadoExpr * alvoCifMilesimos);
+            modelo.Add(mixFreteBaixo * 1000 >= volumeAlocadoExpr * alvoCifMilesimos - volumeCifExpr * 1000);
+
+            objetivoTermos.Add((mixFreteBaixo + mixFreteAlto) * pesoMixFrete);
+
+            notas.Add($"mix de frete: alvo {config.MixFrete.AlvoCif:P0} CIF sobre o volume alocado no "
+                      + $"horizonte, peso {pesoMixFrete}");
+        }
+
+        modelo.Minimize(LinearExpr.Sum(objetivoTermos));
 
         var solver = new CpSolver
         {
@@ -207,7 +310,10 @@ public static class Otimizacao
                 if (solver.Value(vy) != 1) continue;
 
                 var item = itensPorIndice[i];
-                var v = Escalar(item.VolumeM3);
+                var vAlocado = x.TryGetValue((i, centro, s), out var vx)
+                    ? solver.Value(vx)
+                    : Escalar(item.VolumeM3);
+                if (vAlocado <= 0) continue;
 
                 var motivos = ComputarMotivosSemana(item, centro, s, capacidade)
                     .Select(m => new MotivoAlocacao(CategoriaMotivoEnum.PorqueNestaSemana, m))
@@ -215,7 +321,8 @@ public static class Otimizacao
                         CategoriaMotivoEnum.PorqueNesteCentro, ComputarMotivoCentro(item, capacidade, semanas)))
                     .ToList();
 
-                alocacoes.Add(new Alocacao(i, centro, s, v / (double)Escala, multiplicadores[i], motivos));
+                alocacoes.Add(new Alocacao(
+                    i, centro, s, vAlocado / (double)Escala, (int)custoNaoAtender[i], motivos));
             }
 
             foreach (var (i, var_) in slack)
@@ -223,10 +330,10 @@ public static class Otimizacao
                 var v = solver.Value(var_);
                 if (v <= 0) continue;
 
-                naoAlocado[i] = v / (double)Escala;
+                var volumeM3 = v / (double)Escala;
+                naoAlocado[i] = volumeM3;
 
-                var item = itensPorIndice[i];
-                motivoNaoAlocado[i] = config.Carreta.Ativa && item.VolumeM3 < config.Carreta.MinimoM3
+                motivoNaoAlocado[i] = config.Carreta.Ativa && volumeM3 < config.Carreta.MinimoM3
                     ? MotivoAlocacaoEnum.LoteMinimoMaiorQueParametrizado
                     : MotivoAlocacaoEnum.Despriorizado;
             }
@@ -250,6 +357,9 @@ public static class Otimizacao
             }
         }
 
+        var variaveis = slack.Count + carretas.Count + x.Count + (mixFreteAtivo ? 2 : 0);
+        var binarias = y.Count + embarques.Count;
+
         return new ResultadoOtimizacao(
             status.ToString(),
             solver.WallTime(),
@@ -257,16 +367,36 @@ public static class Otimizacao
             alocacoes.OrderBy(a => a.IndiceSemana).ThenBy(a => a.CentroId).ToList(),
             naoAlocado,
             motivoNaoAlocado,
-            slack.Count + carretas.Count,
-            y.Count + embarques.Count,
+            variaveis,
+            binarias,
             listaEmbarques.OrderByDescending(e => e.VolumeM3).ToList());
+    }
+
+    // Prioridade 1..20 por percentil de antiguidade (mais antigo = maior prioridade). Percentil em
+    // vez de normalização linear da data: a carteira tende a concentrar a maior parte das linhas nos
+    // últimos meses, e uma normalização linear "achataria" o efeito da antiguidade para quase zero na
+    // maioria dos itens (mesma técnica e razão documentadas no projeto de referência
+    // otimizador-teste-entrega).
+    private static Dictionary<int, long> CalcularPrioridadeAntiguidade(IReadOnlyList<Item> itens)
+    {
+        var ordenados = itens.OrderBy(i => i.DataDocumentoMaisAntiga).ToList();
+        var n = ordenados.Count;
+        var resultado = new Dictionary<int, long>();
+
+        for (var pos = 0; pos < n; pos++)
+        {
+            var percentil = n > 1 ? 1.0 - (double)pos / (n - 1) : 1.0;
+            resultado[ordenados[pos].Indice] = (long)Math.Round(1 + percentil * 19);
+        }
+
+        return resultado;
     }
 
     // "Porque nesta semana": olha, no centro escolhido, todas as semanas anteriores à escolhida —
     // se em alguma delas não havia capacidade nenhuma, ou havia capacidade mas insuficiente para o
-    // item inteiro, isso explica por que o item não pôde ser alocado antes. É heurístico (o CP-SAT
-    // não expõe uma "razão" nativa para a escolha entre buckets empatados), não um traço literal do
-    // solver.
+    // piso do item (o menor fragmento possível), isso explica por que o item não pôde ser alocado
+    // antes. É heurístico (o CP-SAT não expõe uma "razão" nativa para a escolha entre buckets
+    // empatados), não um traço literal do solver.
     private static List<MotivoAlocacaoEnum> ComputarMotivosSemana(
         Item item, int centroEscolhido, int semanaEscolhidaIndice, CapacidadeHorizonte capacidade)
     {
@@ -284,7 +414,7 @@ public static class Otimizacao
                 if (!motivos.Contains(MotivoAlocacaoEnum.SemCapacidadeSemanasAnteriores))
                     motivos.Add(MotivoAlocacaoEnum.SemCapacidadeSemanasAnteriores);
             }
-            else if (disponivel < item.VolumeM3 && !motivos.Contains(MotivoAlocacaoEnum.LoteMinimoNaoCabeAntes))
+            else if (disponivel < item.Piso && !motivos.Contains(MotivoAlocacaoEnum.LoteMinimoNaoCabeAntes))
             {
                 motivos.Add(MotivoAlocacaoEnum.LoteMinimoNaoCabeAntes);
             }

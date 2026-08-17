@@ -7,11 +7,6 @@ public class PedidoOtimizado
     public string PedidoId { get; set; }
     public string CenarioId { get; set; }
     public string ResultadoId { get; set; }
-    // Liga o pedido de volta à demanda (Demanda.CarteiraId) que o originou — usado para excluir com
-    // precisão, numa reotimização, a demanda cujo pedido já está pinado (ver
-    // OtimizadorService.DescontarPinados). Sem isso, duas demandas do mesmo cliente+produto seriam
-    // indistinguíveis para esse desconto.
-    public long CarteiraId { get; set; }
     public string Cliente { get; set; }
     public string Material { get; set; }
     public int LinhaProdutoId { get; set; }

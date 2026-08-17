@@ -12,6 +12,11 @@ public sealed record LinhaCarteira(
     string Segmento,
     long CentroOriginal);
 
+// Piso: volume mínimo de um fragmento deste item dentro de um embarque — max(lote mínimo cadastrado
+// do produto, mínimo por SKU do setup), nunca maior que o próprio volume do item (ver
+// Modelo/Preparacao.cs). Item.Piso == Item.VolumeM3 significa item indivisível (tudo-ou-nada, um
+// único bucket); Item.Piso < Item.VolumeM3 significa item divisível entre vários buckets, nunca
+// fragmentado abaixo do piso (ver Modelo/Otimizacao.cs).
 public sealed record Item(
     int Indice,
     string ClienteId,
@@ -22,7 +27,7 @@ public sealed record Item(
     DateTime DataDocumentoMaisAntiga,
     bool Cif,
     bool Industria,
-    double LoteMinimoM3,
+    double Piso,
     IReadOnlyList<int> CentrosElegiveis,
     IReadOnlyList<long> CarteiraIds);
 

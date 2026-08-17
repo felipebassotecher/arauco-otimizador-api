@@ -5,6 +5,7 @@ using Arauco.Otimizador.Common.Domain.Models.Otimizador;
 using Arauco.Otimizador.Common.Domain.Services.Otimizador;
 using Arauco.Otimizador.Data.Entities;
 using Arauco.Otimizador.Data.Entities.Otimizador;
+using Arauco.Otimizador.Data.Entities.Setup;
 using Arauco.Otimizador.Service.Base;
 using Arauco.Otimizador.Service.OtimizadorService.Capacidade;
 using Arauco.Otimizador.Service.OtimizadorService.Dados;
@@ -32,16 +33,23 @@ public class OtimizadorService : ServiceBase, IOtimizadorService
             .FirstOrDefaultAsync(c => c.CenarioId == cenarioId)
             ?? throw new NotFoundException("Cenário não encontrado");
 
+        if (cenario.SetupId is null)
+            throw new ApiException("Cenário sem setup vinculado");
+
+        var setup = await unitOfWork.SetupRepository
+            .FirstOrDefaultAsync(s => s.SetupId == cenario.SetupId)
+            ?? throw new ApiException("Setup vinculado ao cenário não encontrado");
+
+        var ordemImportancia = await unitOfWork.SetupOrdemImportanciaRepository
+            .Where(o => o.SetupId == setup.SetupId)
+            .ToListAsync();
+
         var demandas = await unitOfWork.DemandaRepository
             .Where(d => d.CenarioId == cenarioId)
             .ToListAsync();
 
         if (demandas.Count == 0)
             throw new ApiException("Cenário sem demandas carregadas");
-
-        var criterios = await unitOfWork.CenarioCriterioRepository
-            .Where(c => c.CenarioId == cenarioId)
-            .ToListAsync();
 
         var pinados = await unitOfWork.PedidoOtimizadoRepository
             .Where(p => p.CenarioId == cenarioId && p.Pinado)
@@ -52,7 +60,8 @@ public class OtimizadorService : ServiceBase, IOtimizadorService
         var carteira = DemandaParaCarteiraMapper.Mapear(demandas, carregador.Produtos);
         var dados = carregador.ComCarteira(carteira);
 
-        var config = CriarConfig(request);
+        var config = CriarConfig(setup, request);
+        var termos = Objetivo.CalcularPesos(ordemImportancia);
         var notas = new List<string>(dados.Notas);
 
         var bruta = ProvedorCapacidade.MontarBruta(config, dados.Capacidade, dados.ParesElegiveis, notas);
@@ -65,7 +74,7 @@ public class OtimizadorService : ServiceBase, IOtimizadorService
 
         var (itensAjustados, capacidadeAjustada, volumePinadoTotal) = DescontarPinados(prep.Itens, capacidade, pinados, notas);
 
-        var resultadoOtimizacao = Otimizacao.Resolver(config, itensAjustados, capacidadeAjustada, criterios, notas);
+        var resultadoOtimizacao = Otimizacao.Resolver(config, itensAjustados, capacidadeAjustada, termos, notas);
 
         var resultadoId = await IdGenerator.New();
         var geradoEm = DateTime.UtcNow;
@@ -117,7 +126,6 @@ public class OtimizadorService : ServiceBase, IOtimizadorService
                 PedidoId = pedidoId,
                 CenarioId = cenarioId,
                 ResultadoId = resultadoId,
-                CarteiraId = item.CarteiraIds[0],
                 Cliente = item.ClienteId,
                 Material = item.ProdutoId,
                 LinhaProdutoId = item.LinhaProdutoId,
@@ -273,21 +281,33 @@ public class OtimizadorService : ServiceBase, IOtimizadorService
         return motivos.Select(_MapearMotivo).ToList();
     }
 
-    // Remove do lote a otimizar qualquer item cuja demanda (CarteiraId) já tenha um pedido pinado, e
-    // desconta o volume desses pedidos da capacidade do bucket (centro, linha produto, semana)
-    // correspondente — para que o solver nunca reotimize nem estoure capacidade já comprometida por
-    // um pedido fixado manualmente numa execução anterior. Cada item corresponde a exatamente uma
-    // demanda (ver Preparacao.cs), então "pinado" é sempre tudo-ou-nada por item, nunca parcial.
+    // Remove do lote a otimizar o volume já comprometido por pedidos pinados, e desconta o mesmo
+    // volume da capacidade do bucket (centro, linha produto, semana) correspondente — para que o
+    // solver nunca reotimize nem estoure capacidade já comprometida por um pedido fixado manualmente
+    // numa execução anterior. Como um item agora agrega várias demandas do mesmo cliente+produto (ver
+    // Preparacao.cs), o desconto passa a ser por grupo (Cliente, Produto), não mais por CarteiraId
+    // exata: soma-se o volume pinado de cada grupo e subtrai-se do item correspondente, zerando/
+    // excluindo o item quando o pinado já cobre tudo.
     private static (List<Item> Itens, CapacidadeHorizonte Capacidade, double VolumePinadoTotal) DescontarPinados(
         IReadOnlyList<Item> itens, CapacidadeHorizonte capacidade, List<PedidoOtimizado> pinados, List<string> notas)
     {
         if (pinados.Count == 0)
             return (itens.ToList(), capacidade, 0);
 
-        var carteiraIdsPinados = pinados.Select(p => p.CarteiraId).ToHashSet();
+        var pinadoPorGrupo = pinados
+            .GroupBy(p => (p.Cliente, p.Material))
+            .ToDictionary(g => g.Key, g => g.Sum(p => (double)p.Volume));
 
         var itensAjustados = itens
-            .Where(item => !item.CarteiraIds.Any(carteiraIdsPinados.Contains))
+            .Select(item =>
+            {
+                var pinado = pinadoPorGrupo.GetValueOrDefault((item.ClienteId, item.ProdutoId));
+                if (pinado <= 0) return item;
+
+                var restante = Math.Max(0, item.VolumeM3 - pinado);
+                return item with { VolumeM3 = restante, Piso = Math.Min(item.Piso, restante) };
+            })
+            .Where(item => item.VolumeM3 > 0)
             .ToList();
 
         var indicePorSemana = capacidade.Semanas
@@ -316,31 +336,46 @@ public class OtimizadorService : ServiceBase, IOtimizadorService
         var volumePinadoTotal = pinados.Sum(p => (double)p.Volume);
 
         notas.Add($"pinning: {pinados.Count} pedido(s) fixado(s) de execução(ões) anterior(es) "
-                  + $"({volumePinadoTotal:N2} m3) removidos do lote a otimizar e descontados da "
-                  + "capacidade"
+                  + $"({volumePinadoTotal:N2} m3) descontados do lote a otimizar (por cliente+produto) "
+                  + "e da capacidade"
                   + (foraDoHorizonte > 0 ? $" — {foraDoHorizonte} fixado(s) fora do horizonte atual, mantido(s) sem afetar capacidade" : ""));
 
         return (itensAjustados, capacidade with { PorBucket = novoPorBucket }, volumePinadoTotal);
     }
 
-    private static Config CriarConfig(OtimizacaoRequest? request)
+    // Fonte de configuração do motor: o Setup vinculado ao cenário. Campos sem equivalente no Setup
+    // continuam com os valores hard-coded de Config.cs (ver comentário na classe). `request` só
+    // sobrepõe LimiteSegundos — um knob operacional por chamada, não uma regra de negócio do Setup.
+    private static Config CriarConfig(Setup setup, OtimizacaoRequest? request)
     {
         var config = new Config();
 
-        if (request is null) return config;
+        if (setup.Horizonte.HasValue) config.Horizonte = setup.Horizonte.Value;
+        if (setup.ModoCapacidade.HasValue) config.Capacidade = (ModoCapacidade)setup.ModoCapacidade.Value;
+        if (!string.IsNullOrWhiteSpace(setup.SemanaInicial)) config.SemanaInicial = setup.SemanaInicial;
+        if (setup.AlvoCapacidadeSobreDemanda.HasValue) config.AlvoCapacidadeSobreDemanda = (double)setup.AlvoCapacidadeSobreDemanda.Value;
+        if (setup.QuantidadeMinimaSkuPorLote.HasValue) config.QuantidadeMinimaSkuPorLote = setup.QuantidadeMinimaSkuPorLote.Value;
 
-        if (request.Horizonte.HasValue) config.Horizonte = request.Horizonte.Value;
-        if (request.Capacidade.HasValue) config.Capacidade = (ModoCapacidade)request.Capacidade.Value;
-        if (!string.IsNullOrWhiteSpace(request.SemanaInicial)) config.SemanaInicial = request.SemanaInicial;
-        if (request.AlvoCapacidadeSobreDemanda.HasValue) config.AlvoCapacidadeSobreDemanda = request.AlvoCapacidadeSobreDemanda.Value;
-        if (request.LimiteSegundos.HasValue) config.LimiteSegundos = request.LimiteSegundos.Value;
-        if (request.CarretaMinimoM3.HasValue) config.Carreta.MinimoM3 = request.CarretaMinimoM3.Value;
-        if (request.CarretaMaximoM3.HasValue) config.Carreta.MaximoM3 = request.CarretaMaximoM3.Value;
-        if (request.LimiteRecebimentoCarretasPorSemana.HasValue)
+        if (setup.VolumeMinimoCarreta.HasValue && setup.VolumeMaximoCarreta.HasValue)
+        {
+            config.Carreta.Ativa = true;
+            config.Carreta.MinimoM3 = (double)setup.VolumeMinimoCarreta.Value;
+            config.Carreta.MaximoM3 = (double)setup.VolumeMaximoCarreta.Value;
+        }
+
+        if (setup.CapacidadeMaximaRecebimentoCliente.HasValue)
         {
             config.LimiteRecebimento.Ativo = true;
-            config.LimiteRecebimento.CarretasPorSemana = request.LimiteRecebimentoCarretasPorSemana.Value;
+            config.LimiteRecebimento.CarretasPorSemana = setup.CapacidadeMaximaRecebimentoCliente.Value;
         }
+
+        if (setup.MixTipoFrete.HasValue)
+        {
+            config.MixFrete.Ativo = true;
+            config.MixFrete.AlvoCif = setup.MixTipoFrete.Value / 100.0;
+        }
+
+        if (request?.LimiteSegundos is { } limiteSegundos) config.LimiteSegundos = limiteSegundos;
 
         return config;
     }
@@ -438,7 +473,7 @@ public class OtimizadorService : ServiceBase, IOtimizadorService
         };
     }
 
-    // Mesma resolução usada pelo critério "Tipo de Cliente" (AvaliadorCriterios.ObterValorCampo).
+    // Mesma resolução usada pelo campo "Tipo de Cliente" (Item.Industria — ver Preparacao.cs).
     private static string _TipoCliente(bool industria) => industria ? "INDUSTRIA" : "REVENDA";
 
     private static PedidoOtimizadoMotivoResponse _MapearMotivo(PedidoOtimizadoMotivo motivo) => new()
@@ -452,7 +487,7 @@ public class OtimizadorService : ServiceBase, IOtimizadorService
     private static string _DescreverMotivoNaoAlocado(MotivoAlocacaoEnum motivo) => motivo switch
     {
         MotivoAlocacaoEnum.LoteMinimoMaiorQueParametrizado =>
-            "lote mínimo maior que o parametrizado — volume do item abaixo da carreta mínima configurada",
+            "lote mínimo maior que o parametrizado — volume restante abaixo da carreta mínima configurada",
         _ => "despriorizado — capacidade do horizonte foi alocada a itens de maior prioridade"
     };
 }

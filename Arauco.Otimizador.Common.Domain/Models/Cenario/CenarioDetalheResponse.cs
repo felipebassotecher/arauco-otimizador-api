@@ -1,5 +1,4 @@
 using Arauco.Otimizador.Common.Domain.Enums.Cenario;
-using Arauco.Otimizador.Common.Domain.Models.Criterio;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 
@@ -11,7 +10,8 @@ public class CenarioDetalheResponse
 {
     public string Id { get; set; }
     public string Nome { get; set; }
-    public List<CriterioRegraResponse> Criterios { get; set; }
+    public string? SetupId { get; set; }
+    public string? SetupNome { get; set; }
     public string? ArquivoNome { get; set; }
     public DateTime DataCriacao { get; set; }
     public DateTime? DataUltimoProcessamento { get; set; }

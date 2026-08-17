@@ -9,7 +9,6 @@ public interface IUnitOfWork
 
     // Cenario
     IGenericRepository<Cenario.Cenario> CenarioRepository { get; }
-    IGenericRepository<Cenario.CenarioCriterio> CenarioCriterioRepository { get; }
     IGenericRepository<Cenario.CenarioArquivo> CenarioArquivoRepository { get; }
 
     // Demanda
@@ -31,6 +30,7 @@ public interface IUnitOfWork
     // Dataset (master data consumida pelo motor de otimização — ver Data.Entities/Dataset)
     IGenericRepository<Dataset.Centro> CentroRepository { get; }
     IGenericRepository<Dataset.Produto> ProdutoRepository { get; }
+    IGenericRepository<Dataset.LinhaProduto> LinhaProdutoRepository { get; }
     IGenericRepository<Dataset.Elegibilidade> ElegibilidadeRepository { get; }
     IGenericRepository<Dataset.Capacidade> CapacidadeRepository { get; }
     IGenericRepository<Dataset.Carteira> CarteiraRepository { get; }

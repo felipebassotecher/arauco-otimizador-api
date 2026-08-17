@@ -41,6 +41,11 @@
     <EmbeddedResource Include="Scripts\Script017 - CarteiraId Pedido Otimizado.sql" />
     <EmbeddedResource Include="Scripts\Script018 - PedidoOtimizadoMotivo.sql" />
     <EmbeddedResource Include="Scripts\Script019 - Motivo Estruturado Pedido Nao Alocado.sql" />
+    <EmbeddedResource Include="Scripts\Script020 - Cenario Setup.sql" />
+    <EmbeddedResource Include="Scripts\Script021 - Remove CarteiraId Pedido Otimizado.sql" />
+    <EmbeddedResource Include="Scripts\Script022 - LinhaProduto.sql" />
+    <EmbeddedResource Include="Scripts\Script023 - Insert LinhaProduto.sql" />
+    <EmbeddedResource Include="Scripts\Script024 - Relacionamento Produto LinhaProduto.sql" />
   </ItemGroup>
 
   <ItemGroup>

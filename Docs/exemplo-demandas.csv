@@ -1,0 +1,9 @@
+carteira_id,cliente_id,cliente_nome,produto_id,linha_produto_id,volume_m3,data_documento,incoterms,segmento,centro_original,data_solicitacao_remessa
+100001,CLIENTE_A,Cliente A Comercio de Moveis Ltda,1200055,17,120.500,2026-07-20,CIF,REVENDA,1,2026-07-28
+100002,CLIENTE_B,Cliente B Industria e Comercio SA,1200056,17,84.000,2026-07-21,FOB,INDUSTRIA,2,2026-07-29
+100003,CLIENTE_A,Cliente A Comercio de Moveis Ltda,1200055,17,60.250,2026-07-25,CIF,REVENDA,1,2026-08-03
+100004,CLIENTE_C,Cliente C Distribuidora,1202575,9,45.000,2026-07-22,FOB,REVENDA,3,2026-07-30
+100005,CLIENTE_D,Cliente D Moveis Planejados,1200055,17,200.000,2026-07-18,CIF,INDUSTRIA,1,2026-07-26
+100006,CLIENTE_B,Cliente B Industria e Comercio SA,1200056,17,30.750,2026-07-23,FOB,INDUSTRIA,2,2026-07-31
+100007,CLIENTE_E,Cliente E Marcenaria,1202575,9,15.500,2026-07-24,CIF,REVENDA,3,2026-08-01
+100008,CLIENTE_A,Cliente A Comercio de Moveis Ltda,1200056,17,72.000,2026-07-26,CIF,REVENDA,1,2026-08-05

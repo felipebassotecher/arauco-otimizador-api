@@ -1,7 +1,7 @@
-using Arauco.Otimizador.Common.Domain.Enums.Criterio;
 using Arauco.Otimizador.Common.Domain.Enums.Demanda;
-using Arauco.Otimizador.Data.Entities.Cenario;
+using Arauco.Otimizador.Common.Domain.Enums.Setup;
 using Arauco.Otimizador.Data.Entities.Demanda;
+using Arauco.Otimizador.Data.Entities.Setup;
 using Arauco.Otimizador.Data.MySql;
 using Arauco.Otimizador.Service.OtimizadorService;
 using Arauco.Otimizador.Service.OtimizadorService.Capacidade;
@@ -75,12 +75,14 @@ static async Task RodarCenarioAsync(Carregador carregadorBase)
         });
     }
 
-    // Mesmo exemplo citado no pedido: TipoFrete=CIF -> peso 15, TipoCliente=INDUSTRIA -> peso 25.
-    var criterios = new List<CenarioCriterio>
+    // Ordem de importância de exemplo (mesmo espírito do exemplo antigo: industria e CIF priorizados).
+    var ordemImportancia = new List<SetupOrdemImportancia>
     {
-        new() { CenarioId = "TESTE1", CriterioChave = "tipoFrete", Operador = OperadorCriterioEnum.IgualA, Valor = "CIF", Peso = 15 },
-        new() { CenarioId = "TESTE1", CriterioChave = "tipoCliente", Operador = OperadorCriterioEnum.IgualA, Valor = "INDUSTRIA", Peso = 25 }
+        new() { SetupId = "TESTE1", CriterioEnum = CriterioOrdemEnum.PiorizarClienteRevenda, Ordem = 1, Ativo = true },
+        new() { SetupId = "TESTE1", CriterioEnum = CriterioOrdemEnum.PriorizarFreteCIF, Ordem = 2, Ativo = true },
+        new() { SetupId = "TESTE1", CriterioEnum = CriterioOrdemEnum.AtenderDemanda, Ordem = 3, Ativo = true }
     };
+    var termos = Objetivo.CalcularPesos(ordemImportancia);
 
     var carteira = DemandaParaCarteiraMapper.Mapear(demandas, carregadorBase.Produtos);
     var dados = carregadorBase.ComCarteira(carteira);
@@ -95,12 +97,9 @@ static async Task RodarCenarioAsync(Carregador carregadorBase)
 
     Console.WriteLine($"Itens preparados: {prep.Itens.Count} | excluidos no pre-flight: {prep.Excluidos.Count}");
     foreach (var item in prep.Itens)
-    {
-        var score = AvaliadorCriterios.SomarPesos(item, criterios);
-        Console.WriteLine($"  item {item.Indice}: cliente={item.ClienteId} produto={item.ProdutoId} cif={item.Cif} industria={item.Industria} volume={item.VolumeM3:N2} somaPesos={score}");
-    }
+        Console.WriteLine($"  item {item.Indice}: cliente={item.ClienteId} produto={item.ProdutoId} cif={item.Cif} industria={item.Industria} volume={item.VolumeM3:N2} piso={item.Piso:N2}");
 
-    var resultado1 = Otimizacao.Resolver(config, prep.Itens, capacidade, criterios, notas);
+    var resultado1 = Otimizacao.Resolver(config, prep.Itens, capacidade, termos, notas);
     Console.WriteLine($"[sem pin] status={resultado1.Status} alocacoes={resultado1.Alocacoes.Count} naoAlocado={resultado1.NaoAlocadoPorItem.Values.Sum():N2} m3");
     foreach (var a in resultado1.Alocacoes)
         Console.WriteLine($"  alocado: item={a.ItemIndice} centro={a.CentroId} semana={capacidade.Semanas[a.IndiceSemana]} volume={a.VolumeM3:N2} scorePeso={a.ScorePeso}");
@@ -128,7 +127,7 @@ static async Task RodarCenarioAsync(Carregador carregadorBase)
     var capacidadeAjustada = capacidade with { PorBucket = novoPorBucket };
 
     var notas2 = new List<string>();
-    var resultado2 = Otimizacao.Resolver(config, itensAjustados, capacidadeAjustada, criterios, notas2);
+    var resultado2 = Otimizacao.Resolver(config, itensAjustados, capacidadeAjustada, termos, notas2);
 
     Console.WriteLine($"[com pin] item {pin.ItemIndice} fixado em centro {pin.CentroId}/semana {capacidade.Semanas[pin.IndiceSemana]} ({pin.VolumeM3:N2} m3)");
     Console.WriteLine($"  status={resultado2.Status} alocacoes={resultado2.Alocacoes.Count} naoAlocado={resultado2.NaoAlocadoPorItem.Values.Sum():N2} m3");

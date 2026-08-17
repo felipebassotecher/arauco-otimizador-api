@@ -1,12 +1,10 @@
 using Arauco.Otimizador.Common.Domain.Models.Cenario;
-using Arauco.Otimizador.Common.Domain.Models.Criterio;
 using Arauco.Otimizador.Common.Domain.Models.Pedido;
 
 namespace Arauco.Otimizador.Common.Domain.Services.Cenario;
 
 public interface ICenarioService
 {
-    Task<List<CriterioDisponivelResponse>> ListarCriteriosDisponiveisAsync();
     Task<List<CenarioListaResponse>> ListarAsync();
     Task<CenarioDetalheResponse> ObterAsync(string cenarioId);
     Task<CenarioCriacaoResponse> CriarAsync(CenarioCriacaoRequest model);

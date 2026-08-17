@@ -33,15 +33,6 @@ public class UnitOfWork : IUnitOfWork
         }
     }
 
-    private IGenericRepository<Entities.Cenario.CenarioCriterio> cenarioCriterioRepository;
-    public IGenericRepository<Entities.Cenario.CenarioCriterio> CenarioCriterioRepository
-    {
-        get
-        {
-            return this.cenarioCriterioRepository ??= new GenericRepository<DbContext, Entities.Cenario.CenarioCriterio>(context);
-        }
-    }
-
     private IGenericRepository<Entities.Cenario.CenarioArquivo> cenarioArquivoRepository;
     public IGenericRepository<Entities.Cenario.CenarioArquivo> CenarioArquivoRepository
     {
@@ -143,6 +134,15 @@ public class UnitOfWork : IUnitOfWork
         get
         {
             return this.produtoRepository ??= new GenericRepository<DbContext, Entities.Dataset.Produto>(context);
+        }
+    }
+
+    private IGenericRepository<Entities.Dataset.LinhaProduto> linhaProdutoRepository;
+    public IGenericRepository<Entities.Dataset.LinhaProduto> LinhaProdutoRepository
+    {
+        get
+        {
+            return this.linhaProdutoRepository ??= new GenericRepository<DbContext, Entities.Dataset.LinhaProduto>(context);
         }
     }
 

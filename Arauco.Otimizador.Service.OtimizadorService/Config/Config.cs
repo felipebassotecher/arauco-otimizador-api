@@ -1,5 +1,11 @@
 namespace Arauco.Otimizador.Service.OtimizadorService;
 
+// Configuração do motor de otimização. Os campos que também existem no Setup (Horizonte, Capacidade,
+// SemanaInicial, AlvoCapacidadeSobreDemanda, Carreta.Ativa/MinimoM3/MaximoM3,
+// LimiteRecebimento.Ativo/CarretasPorSemana, MixFrete.Ativo/AlvoCif, QuantidadeMinimaSkuPorLote) são
+// sobrescritos a partir do Setup vinculado ao cenário — ver OtimizadorService.CriarConfig. Os valores
+// abaixo só valem como fallback (Setup sem o campo preenchido) ou para campos sem equivalente no
+// Setup, que continuam hard-coded aqui por decisão de produto.
 public sealed class Config
 {
     public int Horizonte { get; set; } = 8;
@@ -20,19 +26,21 @@ public sealed class Config
 
     public Dictionary<int, double> FatorPorLinhaProduto { get; set; } = [];
 
+    // Fallback para o piso por SKU (Modelo/Preparacao.cs) quando o setup não informa
+    // QuantidadeMinimaSkuPorLote.
     public int ChapasPorLote { get; set; } = 40;
 
     public bool LoteMinimoEmChapas { get; set; } = true;
+
+    // Quantidade mínima de chapas por SKU dentro de um embarque (piso de fragmentação de um item
+    // divisível) — vem de Setup.QuantidadeMinimaSkuPorLote; nulo usa ChapasPorLote.
+    public int? QuantidadeMinimaSkuPorLote { get; set; }
 
     public Carreta Carreta { get; set; } = new();
 
     public LimiteRecebimento LimiteRecebimento { get; set; } = new();
 
-    public Criterios Criterios { get; set; } = new();
-
     public MixFrete MixFrete { get; set; } = new();
-
-    public Pesos Pesos { get; set; } = new();
 
     public double LimiteSegundos { get; set; } = 60;
 
@@ -43,15 +51,16 @@ public sealed class Config
 
 public sealed class Carreta
 {
-    public bool Ativa { get; set; } = true;
-    public double MinimoM3 { get; set; } = 30;
-    public double MaximoM3 { get; set; } = 40;
-    public double? MinimoSkuM3 { get; set; }
+    // Ativa somente quando o setup informa volume mínimo E máximo de carreta — ver CriarConfig.
+    public bool Ativa { get; set; }
+    public double MinimoM3 { get; set; } = 25;
+    public double MaximoM3 { get; set; } = 30;
     public int MaximoCarretasPorEmbarque { get; set; } = 400;
 }
 
 public sealed class LimiteRecebimento
 {
+    // Ativo somente quando o setup informa CapacidadeMaximaRecebimentoCliente — ver CriarConfig.
     public bool Ativo { get; set; }
     public int CarretasPorSemana { get; set; } = 3;
     public Dictionary<string, int> PorCliente { get; set; } = [];
@@ -60,33 +69,9 @@ public sealed class LimiteRecebimento
         PorCliente.TryGetValue(clienteId, out var v) ? v : CarretasPorSemana;
 }
 
-public sealed class Criterios
-{
-    public ModoObjetivo Modo { get; set; } = ModoObjetivo.Ranking;
-    public int Atender { get; set; } = 1;
-    public int Antiguidade { get; set; } = 2;
-    public int MixFrete { get; set; } = 3;
-    public int Atraso { get; set; } = 4;
-    public int Industria { get; set; } = 5;
-    public int Suavizacao { get; set; } = 6;
-    public double ToleranciaLexicografica { get; set; } = 0.02;
-}
-
-public enum ModoObjetivo
-{
-    Ranking,
-    Lexicografico
-}
-
 public sealed class MixFrete
 {
-    public bool Ativo { get; set; } = true;
+    // Ativo somente quando o setup informa MixTipoFrete — ver CriarConfig.
+    public bool Ativo { get; set; }
     public double AlvoCif { get; set; } = 0.6;
-}
-
-public sealed class Pesos
-{
-    public double Antiguidade { get; set; } = 50;
-    public double Cif { get; set; } = 0;
-    public double Industria { get; set; } = 20;
 }

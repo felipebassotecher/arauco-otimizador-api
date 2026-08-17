@@ -203,8 +203,8 @@ public class SetupService : ServiceBase, ISetupService
             throw new ApiException("Mix de tipo de frete deve estar entre 0 e 100");
     }
 
-    // Mesmas regras que Config.cs/ProvedorCapacidade.MontarSemanas já aplicam no motor de otimização
-    // (ver docs-fluxo-otimizacao.pdf) — validadas aqui só na entrada, o motor ainda não lê estes campos.
+    // Mesmas regras que Config.cs/ProvedorCapacidade.MontarSemanas aplicam no motor de otimização,
+    // que lê estes campos do setup vinculado ao cenário (ver OtimizadorService.CriarConfig).
     private static readonly System.Text.RegularExpressions.Regex SemanaIsoRegex =
         new(@"^\d{4}-[Ww]\d{1,2}$", System.Text.RegularExpressions.RegexOptions.Compiled);
 

@@ -1,6 +1,5 @@
 using Arauco.Otimizador.Common.Domain.Models.Cenario;
 using Arauco.Otimizador.Common.Domain.Models.Contrato;
-using Arauco.Otimizador.Common.Domain.Models.Criterio;
 using Arauco.Otimizador.Common.Domain.Models.Otimizador;
 using Arauco.Otimizador.Common.Domain.Models.Pedido;
 using Arauco.Otimizador.Common.Domain.Services.Cenario;
@@ -29,15 +28,6 @@ public class CenariosController : BaseController
         this.cenarioService = cenarioService;
         this.otimizadorService = otimizadorService;
         this.contratoService = contratoService;
-    }
-
-    // Registrado antes de [HttpGet("{id}")] para precedência de rota: segmento literal
-    // "criterios-disponiveis" tem prioridade sobre o parâmetro "{id}" no attribute routing do
-    // ASP.NET Core (changelog 2026-08-03). Assim /cenarios/criterios-disponiveis não cai em ObterAsync.
-    [HttpGet("criterios-disponiveis")]
-    public async Task<List<CriterioDisponivelResponse>> ListarCriteriosDisponiveisAsync()
-    {
-        return await cenarioService.ListarCriteriosDisponiveisAsync();
     }
 
     [HttpGet("")]

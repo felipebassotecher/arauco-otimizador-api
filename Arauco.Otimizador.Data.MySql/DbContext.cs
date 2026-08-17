@@ -13,7 +13,6 @@ public class DbContext : Microsoft.EntityFrameworkCore.DbContext
 
     // Cenario
     public DbSet<Entities.Cenario.Cenario> Cenario { get; set; }
-    public DbSet<Entities.Cenario.CenarioCriterio> CenarioCriterio { get; set; }
     public DbSet<Entities.Cenario.CenarioArquivo> CenarioArquivo { get; set; }
 
     // Demanda
@@ -35,6 +34,7 @@ public class DbContext : Microsoft.EntityFrameworkCore.DbContext
     // Dataset (master data consumida pelo motor de otimização)
     public DbSet<Entities.Dataset.Centro> Centro { get; set; }
     public DbSet<Entities.Dataset.Produto> Produto { get; set; }
+    public DbSet<Entities.Dataset.LinhaProduto> LinhaProduto { get; set; }
     public DbSet<Entities.Dataset.Elegibilidade> Elegibilidade { get; set; }
     public DbSet<Entities.Dataset.Capacidade> Capacidade { get; set; }
     public DbSet<Entities.Dataset.Carteira> Carteira { get; set; }
@@ -55,13 +55,6 @@ public class DbContext : Microsoft.EntityFrameworkCore.DbContext
             c.HasKey(x => x.CenarioId);
 
             c.Property(p => p.StatusEnum).HasColumnName("StatusCenarioId");
-        });
-
-        modelBuilder.Entity<Entities.Cenario.CenarioCriterio>(c =>
-        {
-            c.HasKey(x => x.Id);
-
-            c.Property(p => p.Operador).HasColumnName("OperadorId");
         });
 
         modelBuilder.Entity<Entities.Cenario.CenarioArquivo>(a =>
@@ -139,6 +132,11 @@ public class DbContext : Microsoft.EntityFrameworkCore.DbContext
         modelBuilder.Entity<Entities.Dataset.Produto>(p =>
         {
             p.HasKey(x => x.ProdutoId);
+        });
+
+        modelBuilder.Entity<Entities.Dataset.LinhaProduto>(l =>
+        {
+            l.HasKey(x => x.LinhaProdutoId);
         });
 
         modelBuilder.Entity<Entities.Dataset.Elegibilidade>(e =>

@@ -12,8 +12,8 @@ public class Setup
     public int? QuantidadeMinimaSkuPorLote { get; set; }
     public int? CapacidadeMaximaRecebimentoCliente { get; set; }
     public int? MixTipoFrete { get; set; }
-    // Parâmetros do motor de otimização (espelham Config.cs) — ainda não lidos pelo motor em si, já
-    // que Setup não é referenciado por Cenário hoje; ver docs-fluxo-otimizacao.pdf.
+    // Parâmetros do motor de otimização (espelham Config.cs) — lidos pelo motor a partir do Setup
+    // vinculado ao Cenário (Cenario.SetupId) — ver OtimizadorService.CriarConfig.
     public int? Horizonte { get; set; }
     public ModoCapacidadeEnum? ModoCapacidade { get; set; }
     public string? SemanaInicial { get; set; }

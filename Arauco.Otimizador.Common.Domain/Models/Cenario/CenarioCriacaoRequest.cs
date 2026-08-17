@@ -1,13 +1,12 @@
-using Arauco.Otimizador.Common.Domain.Models.Criterio;
-
 namespace Arauco.Otimizador.Common.Domain.Models.Cenario;
 
 // Enviado em POST /cenarios. Não contém dados do arquivo — o upload do CSV é feito em uma requisição
-// separada (POST /cenarios/{id}/csv), após o cenário já existir (spec §3.4). `criterios` é a lista de
-// regras (criterioChave + operador + valor + peso) configuradas na criação; o mesmo criterioChave pode
-// se repetir mais de uma vez na lista.
+// separada (POST /cenarios/{id}/csv), após o cenário já existir (spec §3.4). `setupId` é obrigatório:
+// o motor de otimização não tem mais configuração própria por cenário — horizonte, capacidade,
+// carreta, limite de recebimento e ordem de importância dos critérios vêm do Setup vinculado (ver
+// OtimizadorService.OtimizarAsync). O vínculo é definido aqui e não pode ser trocado depois.
 public class CenarioCriacaoRequest
 {
     public string Nome { get; set; }
-    public List<CriterioRegraRequest> Criterios { get; set; }
+    public string SetupId { get; set; }
 }
