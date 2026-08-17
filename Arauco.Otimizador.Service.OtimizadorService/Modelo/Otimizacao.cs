@@ -288,6 +288,84 @@ public static class Otimizacao
                       + $"horizonte, peso {pesoMixFrete}");
         }
 
+        // ------------------------------------------------------------------- hint
+        // Solução inicial gulosa (Greedy.Alocar) usada como hint do CP-SAT — sem incumbente o
+        // solver gasta o orçamento inteiro procurando a primeira solução decente em vez de
+        // melhorar uma já razoável (ver Greedy.cs). Reusa custoNaoAtender (já calculado acima)
+        // como prioridade de alocação: é o mesmo peso composto (atender + antiguidade +
+        // indústria) que o objetivo usa para penalizar slack, então guia o greedy na mesma
+        // direção que o solver otimiza.
+        //
+        // TODA variável do modelo precisa de valor no hint: hint incompleto é descartado
+        // inteiro, em silêncio — por isso a contagem de completude no fim deste bloco.
+        var greedy = Greedy.Alocar(itens, custoNaoAtender, capacidade, semanas, config, Escalar);
+        var hint = greedy.Alocacao;
+
+        var problemasGreedy = Greedy.Validar(greedy, itens, capacidade, config, Escalar);
+        if (problemasGreedy.Count > 0)
+            notas.Add($"ATENÇÃO greedy infactível em {problemasGreedy.Count} ponto(s) — hint será "
+                      + $"descartado pelo solver. Primeiros: {string.Join(" | ", problemasGreedy.Take(3))}");
+
+        var hintVars = new List<IntVar>();
+        var hintValores = new List<long>();
+
+        foreach (var ((i, centro, s), vy) in y)
+        {
+            hintVars.Add(vy);
+            hintValores.Add(hint.GetValueOrDefault((i, centro, s), 0L) > 0 ? 1 : 0);
+        }
+
+        foreach (var ((i, centro, s), vx) in x)
+        {
+            hintVars.Add(vx);
+            hintValores.Add(hint.GetValueOrDefault((i, centro, s), 0L));
+        }
+
+        foreach (var (i, slackVar) in slack)
+        {
+            var alocadoItem = hint.Where(kv => kv.Key.Item == i).Sum(kv => kv.Value);
+            hintVars.Add(slackVar);
+            hintValores.Add(Math.Max(0, Escalar(itensPorIndice[i].VolumeM3) - alocadoItem));
+        }
+
+        foreach (var (chave, n) in carretas)
+        {
+            var quantas = greedy.Carretas.GetValueOrDefault(chave, 0);
+            hintVars.Add(n);
+            hintValores.Add(quantas);
+            hintVars.Add(embarques[chave]);
+            hintValores.Add(quantas > 0 ? 1 : 0);
+        }
+
+        if (mixFreteAtivo)
+        {
+            var alvoCifMilesimosHint = (long)Math.Round(config.MixFrete.AlvoCif * 1000);
+            var cifGreedy = hint.Where(kv => itensPorIndice[kv.Key.Item].Cif).Sum(kv => kv.Value);
+            var totalGreedy = hint.Values.Sum();
+
+            hintVars.Add(mixFreteAlto!);
+            hintValores.Add((long)Math.Max(0,
+                Math.Ceiling((cifGreedy * 1000 - totalGreedy * alvoCifMilesimosHint) / 1000.0)));
+            hintVars.Add(mixFreteBaixo!);
+            hintValores.Add((long)Math.Max(0,
+                Math.Ceiling((totalGreedy * alvoCifMilesimosHint - cifGreedy * 1000) / 1000.0)));
+        }
+
+        // Contagem pelo PROTO do modelo, não por aritmética manual: se uma variável nova for
+        // criada e esquecida na soma acima, a salvaguarda mentiria — e hint incompleto é
+        // descartado inteiro, em silêncio.
+        var variaveisDoModelo = modelo.Model.Variables.Count;
+        if (hintVars.Count < variaveisDoModelo)
+            notas.Add($"ATENÇÃO hint incompleto: {hintVars.Count} de {variaveisDoModelo} "
+                      + "variáveis — o CP-SAT vai descartar o hint inteiro");
+
+        for (var h = 0; h < hintVars.Count; h++)
+            modelo.AddHint(hintVars[h], hintValores[h]);
+
+        var volumeHintM3 = greedy.VolumeAlocado / (double)Escala;
+        notas.Add($"greedy inicial: {volumeHintM3:N0} m3 alocados "
+                  + $"({volumeHintM3 / Math.Max(itens.Sum(it => it.VolumeM3), 1):P1} do elegível) — usado como hint");
+
         modelo.Minimize(LinearExpr.Sum(objetivoTermos));
 
         var solver = new CpSolver

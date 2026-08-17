@@ -101,6 +101,7 @@ static async Task RodarCenarioAsync(Carregador carregadorBase)
 
     var resultado1 = Otimizacao.Resolver(config, prep.Itens, capacidade, termos, notas);
     Console.WriteLine($"[sem pin] status={resultado1.Status} alocacoes={resultado1.Alocacoes.Count} naoAlocado={resultado1.NaoAlocadoPorItem.Values.Sum():N2} m3");
+    foreach (var nota in notas) Console.WriteLine($"  nota: {nota}");
     foreach (var a in resultado1.Alocacoes)
         Console.WriteLine($"  alocado: item={a.ItemIndice} centro={a.CentroId} semana={capacidade.Semanas[a.IndiceSemana]} volume={a.VolumeM3:N2} scorePeso={a.ScorePeso}");
 
@@ -128,6 +129,7 @@ static async Task RodarCenarioAsync(Carregador carregadorBase)
 
     var notas2 = new List<string>();
     var resultado2 = Otimizacao.Resolver(config, itensAjustados, capacidadeAjustada, termos, notas2);
+    foreach (var nota in notas2) Console.WriteLine($"  nota: {nota}");
 
     Console.WriteLine($"[com pin] item {pin.ItemIndice} fixado em centro {pin.CentroId}/semana {capacidade.Semanas[pin.IndiceSemana]} ({pin.VolumeM3:N2} m3)");
     Console.WriteLine($"  status={resultado2.Status} alocacoes={resultado2.Alocacoes.Count} naoAlocado={resultado2.NaoAlocadoPorItem.Values.Sum():N2} m3");
