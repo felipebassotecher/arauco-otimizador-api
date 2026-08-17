@@ -118,6 +118,15 @@ public class UnitOfWork : IUnitOfWork
         }
     }
 
+    private IGenericRepository<Entities.Otimizador.PedidoOtimizadoMotivo> pedidoOtimizadoMotivoRepository;
+    public IGenericRepository<Entities.Otimizador.PedidoOtimizadoMotivo> PedidoOtimizadoMotivoRepository
+    {
+        get
+        {
+            return this.pedidoOtimizadoMotivoRepository ??= new GenericRepository<DbContext, Entities.Otimizador.PedidoOtimizadoMotivo>(context);
+        }
+    }
+
     // Dataset (master data consumida pelo motor de otimização)
     private IGenericRepository<Entities.Dataset.Centro> centroRepository;
     public IGenericRepository<Entities.Dataset.Centro> CentroRepository

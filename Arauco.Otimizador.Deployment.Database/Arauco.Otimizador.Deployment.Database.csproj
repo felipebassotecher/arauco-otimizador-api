@@ -38,6 +38,9 @@
     <EmbeddedResource Include="Scripts\Script014 - Alteracao Tamanho Id Demanda.sql" />
     <EmbeddedResource Include="Scripts\Script015 - Tipo Cliente Pedido Otimizado.sql" />
     <EmbeddedResource Include="Scripts\Script016 - Parametros Otimizacao Setup.sql" />
+    <EmbeddedResource Include="Scripts\Script017 - CarteiraId Pedido Otimizado.sql" />
+    <EmbeddedResource Include="Scripts\Script018 - PedidoOtimizadoMotivo.sql" />
+    <EmbeddedResource Include="Scripts\Script019 - Motivo Estruturado Pedido Nao Alocado.sql" />
   </ItemGroup>
 
   <ItemGroup>

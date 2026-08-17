@@ -1,5 +1,6 @@
 using Arauco.Otimizador.Common.Domain.Enums.Cenario;
 using Arauco.Otimizador.Common.Domain.Enums.Demanda;
+using Arauco.Otimizador.Common.Domain.Enums.Otimizador;
 using Arauco.Otimizador.Common.Domain.Models.Otimizador;
 using Arauco.Otimizador.Common.Domain.Services.Otimizador;
 using Arauco.Otimizador.Data.Entities;
@@ -101,18 +102,22 @@ public class OtimizadorService : ServiceBase, IOtimizadorService
 
         var itensPorIndice = itensAjustados.ToDictionary(i => i.Indice);
         var novosPedidos = new List<PedidoOtimizado>();
+        var novosMotivos = new List<PedidoOtimizadoMotivo>();
+        var motivosPorPedidoId = new Dictionary<string, List<PedidoOtimizadoMotivoResponse>>();
 
         foreach (var a in resultadoOtimizacao.Alocacoes)
         {
             var item = itensPorIndice[a.ItemIndice];
             var semana = capacidadeAjustada.Semanas[a.IndiceSemana];
             var centroNome = dados.Centros.FirstOrDefault(c => c.CentroId == a.CentroId)?.Nome ?? a.CentroId.ToString();
+            var pedidoId = await IdGenerator.New(12);
 
             novosPedidos.Add(new PedidoOtimizado
             {
-                PedidoId = await IdGenerator.New(12),
+                PedidoId = pedidoId,
                 CenarioId = cenarioId,
                 ResultadoId = resultadoId,
+                CarteiraId = item.CarteiraIds[0],
                 Cliente = item.ClienteId,
                 Material = item.ProdutoId,
                 LinhaProdutoId = item.LinhaProdutoId,
@@ -126,8 +131,20 @@ public class OtimizadorService : ServiceBase, IOtimizadorService
                 Pinado = false,
                 ScorePeso = a.ScorePeso
             });
+
+            novosMotivos.AddRange(a.Motivos.Select(m => new PedidoOtimizadoMotivo
+            {
+                PedidoId = pedidoId,
+                CategoriaEnum = m.Categoria,
+                MotivoEnum = m.Motivo
+            }));
+
+            motivosPorPedidoId[pedidoId] = a.Motivos
+                .Select(m => new PedidoOtimizadoMotivoResponse { Categoria = m.Categoria, Motivo = m.Motivo })
+                .ToList();
         }
         unitOfWork.PedidoOtimizadoRepository.AddRange(novosPedidos);
+        unitOfWork.PedidoOtimizadoMotivoRepository.AddRange(novosMotivos);
 
         var naoAlocados = new List<PedidoOtimizadoNaoAlocado>();
         foreach (var (indice, volume) in resultadoOtimizacao.NaoAlocadoPorItem)
@@ -141,7 +158,9 @@ public class OtimizadorService : ServiceBase, IOtimizadorService
                 Material = item.ProdutoId,
                 LinhaProdutoId = item.LinhaProdutoId,
                 VolumeM3 = (decimal)volume,
-                Motivo = "sem capacidade suficiente no horizonte para o volume restante"
+                Motivo = _DescreverMotivoNaoAlocado(resultadoOtimizacao.MotivoNaoAlocadoPorItem[indice]),
+                CategoriaEnum = CategoriaMotivoEnum.PorqueNaoAlocado,
+                MotivoEnum = resultadoOtimizacao.MotivoNaoAlocadoPorItem[indice]
             });
         }
         unitOfWork.PedidoOtimizadoNaoAlocadoRepository.AddRange(naoAlocados);
@@ -154,7 +173,7 @@ public class OtimizadorService : ServiceBase, IOtimizadorService
         cenario.DataUltimoProcessamento = geradoEm;
         await unitOfWork.SaveAsync();
 
-        return MapearResponse(resultado, resultadoOtimizacao, capacidadeAjustada, dados, itensPorIndice, notas, pinados, alocadoNovo, naoAlocadoNovo, novosPedidos);
+        return MapearResponse(resultado, resultadoOtimizacao, capacidadeAjustada, dados, itensPorIndice, notas, pinados, alocadoNovo, naoAlocadoNovo, novosPedidos, motivosPorPedidoId);
     }
 
     public async Task<List<PedidoOtimizadoResponse>> ListarPedidosDaSemanaAsync(string cenarioId, int ano, int semana)
@@ -166,7 +185,52 @@ public class OtimizadorService : ServiceBase, IOtimizadorService
             .Where(p => p.CenarioId == cenarioId && p.Ano == ano && p.Semana == semana)
             .ToListAsync();
 
-        return pedidos.Select(MapearPedido).ToList();
+        var pedidoIds = pedidos.Select(p => p.PedidoId).ToList();
+        var motivos = await unitOfWork.PedidoOtimizadoMotivoRepository
+            .Where(m => pedidoIds.Contains(m.PedidoId))
+            .ToListAsync();
+        var motivosPorPedido = motivos
+            .GroupBy(m => m.PedidoId)
+            .ToDictionary(g => g.Key, g => g.Select(_MapearMotivo).ToList());
+
+        return pedidos.Select(p => MapearPedido(p, motivosPorPedido.GetValueOrDefault(p.PedidoId, []))).ToList();
+    }
+
+    // Itens que não couberam na capacidade disponível na última execução do motor de otimização
+    // (ver PedidoOtimizadoNaoAlocado). Escopado ao ResultadoId mais recente do cenário — execuções
+    // anteriores deixam seus próprios registros no banco, mas deixam de ser "atuais".
+    public async Task<List<PedidoOtimizadoNaoAlocadoResponse>> ListarNaoAlocadosAsync(string cenarioId)
+    {
+        if (!await unitOfWork.CenarioRepository.AnyAsync(c => c.CenarioId == cenarioId))
+            throw new NotFoundException("Cenário não encontrado");
+
+        var ultimoResultado = await unitOfWork.CenarioOtimizacaoResultadoRepository
+            .Where(r => r.CenarioId == cenarioId)
+            .OrderByDescending(r => r.GeradoEm)
+            .FirstOrDefaultAsync();
+
+        if (ultimoResultado is null)
+            return [];
+
+        var naoAlocados = await unitOfWork.PedidoOtimizadoNaoAlocadoRepository
+            .Where(n => n.ResultadoId == ultimoResultado.ResultadoId)
+            .ToListAsync();
+
+        return naoAlocados
+            .Select(n => new PedidoOtimizadoNaoAlocadoResponse
+            {
+                Id = n.NaoAlocadoId,
+                Cliente = n.Cliente,
+                Material = n.Material,
+                LinhaProdutoId = n.LinhaProdutoId,
+                VolumeM3 = (double)n.VolumeM3,
+                Motivo = n.Motivo,
+                Motivos = n.CategoriaEnum.HasValue && n.MotivoEnum.HasValue
+                    ? [new PedidoOtimizadoMotivoResponse { Categoria = n.CategoriaEnum.Value, Motivo = n.MotivoEnum.Value }]
+                    : []
+            })
+            .OrderByDescending(n => n.VolumeM3)
+            .ToList();
     }
 
     public async Task<PedidoOtimizadoResponse> MoverPedidoAsync(string cenarioId, MoverPedidoOtimizadoRequest model)
@@ -181,29 +245,49 @@ public class OtimizadorService : ServiceBase, IOtimizadorService
 
         await unitOfWork.SaveAsync();
 
-        return MapearPedido(pedido);
+        return MapearPedido(pedido, await _ObterMotivosAsync(pedido.PedidoId));
     }
 
-    // Desconta o volume já pinado do item (cliente+produto) e da capacidade do bucket (centro, linha
-    // produto, semana) correspondente, para que o solver nunca re-otimize nem estoure capacidade já
-    // comprometida por um pedido fixado manualmente numa execução anterior.
+    // Fixa ou libera um pedido na semana em que ele já está, sem movê-lo — ao contrário de
+    // MoverPedidoAsync, que sempre fixa e sempre muda a semana. Um pedido pinado permanece intacto
+    // (mesma semana/centro) em qualquer reotimização futura do cenário (ver DescontarPinados).
+    public async Task<PedidoOtimizadoResponse> AlternarPinAsync(string cenarioId, AlternarPinPedidoRequest model)
+    {
+        var pedido = await unitOfWork.PedidoOtimizadoRepository
+            .FirstOrDefaultAsync(p => p.PedidoId == model.PedidoId && p.CenarioId == cenarioId)
+            ?? throw new NotFoundException("Pedido não encontrado");
+
+        pedido.Pinado = !pedido.Pinado;
+
+        await unitOfWork.SaveAsync();
+
+        return MapearPedido(pedido, await _ObterMotivosAsync(pedido.PedidoId));
+    }
+
+    private async Task<List<PedidoOtimizadoMotivoResponse>> _ObterMotivosAsync(string pedidoId)
+    {
+        var motivos = await unitOfWork.PedidoOtimizadoMotivoRepository
+            .Where(m => m.PedidoId == pedidoId)
+            .ToListAsync();
+
+        return motivos.Select(_MapearMotivo).ToList();
+    }
+
+    // Remove do lote a otimizar qualquer item cuja demanda (CarteiraId) já tenha um pedido pinado, e
+    // desconta o volume desses pedidos da capacidade do bucket (centro, linha produto, semana)
+    // correspondente — para que o solver nunca reotimize nem estoure capacidade já comprometida por
+    // um pedido fixado manualmente numa execução anterior. Cada item corresponde a exatamente uma
+    // demanda (ver Preparacao.cs), então "pinado" é sempre tudo-ou-nada por item, nunca parcial.
     private static (List<Item> Itens, CapacidadeHorizonte Capacidade, double VolumePinadoTotal) DescontarPinados(
         IReadOnlyList<Item> itens, CapacidadeHorizonte capacidade, List<PedidoOtimizado> pinados, List<string> notas)
     {
         if (pinados.Count == 0)
             return (itens.ToList(), capacidade, 0);
 
-        var pinadoPorItem = pinados
-            .GroupBy(p => (p.Cliente, p.Material))
-            .ToDictionary(g => g.Key, g => g.Sum(p => (double)p.Volume));
+        var carteiraIdsPinados = pinados.Select(p => p.CarteiraId).ToHashSet();
 
         var itensAjustados = itens
-            .Select(item =>
-            {
-                var pinadoVolume = pinadoPorItem.GetValueOrDefault((item.ClienteId, item.ProdutoId), 0);
-                var restante = Math.Max(0, item.VolumeM3 - pinadoVolume);
-                return item with { VolumeM3 = restante };
-            })
+            .Where(item => !item.CarteiraIds.Any(carteiraIdsPinados.Contains))
             .ToList();
 
         var indicePorSemana = capacidade.Semanas
@@ -232,8 +316,8 @@ public class OtimizadorService : ServiceBase, IOtimizadorService
         var volumePinadoTotal = pinados.Sum(p => (double)p.Volume);
 
         notas.Add($"pinning: {pinados.Count} pedido(s) fixado(s) de execução(ões) anterior(es) "
-                  + $"({volumePinadoTotal:N2} m3) descontados da demanda e da capacidade antes de "
-                  + $"otimizar o restante"
+                  + $"({volumePinadoTotal:N2} m3) removidos do lote a otimizar e descontados da "
+                  + "capacidade"
                   + (foraDoHorizonte > 0 ? $" — {foraDoHorizonte} fixado(s) fora do horizonte atual, mantido(s) sem afetar capacidade" : ""));
 
         return (itensAjustados, capacidade with { PorBucket = novoPorBucket }, volumePinadoTotal);
@@ -271,7 +355,8 @@ public class OtimizadorService : ServiceBase, IOtimizadorService
         List<PedidoOtimizado> pinados,
         double alocadoNovo,
         double naoAlocadoNovo,
-        List<PedidoOtimizado> novosPedidos)
+        List<PedidoOtimizado> novosPedidos,
+        Dictionary<string, List<PedidoOtimizadoMotivoResponse>> motivosPorPedidoId)
     {
         var demandaElegivel = (double)resultado.DemandaElegivelM3;
         var alocadoTotal = alocadoNovo + pinados.Sum(p => (double)p.Volume);
@@ -313,7 +398,8 @@ public class OtimizadorService : ServiceBase, IOtimizadorService
                 Ano = p.Ano,
                 Semana = p.Semana,
                 Pinado = false,
-                ScorePeso = p.ScorePeso
+                ScorePeso = p.ScorePeso,
+                Motivos = motivosPorPedidoId.GetValueOrDefault(p.PedidoId, [])
             }).ToList(),
             NaoAlocado = resultadoOtimizacao.NaoAlocadoPorItem.Select(kv =>
             {
@@ -324,14 +410,14 @@ public class OtimizadorService : ServiceBase, IOtimizadorService
                     Material = item.ProdutoId,
                     LinhaProdutoId = item.LinhaProdutoId,
                     VolumeM3 = Math.Round(kv.Value, 2),
-                    Motivo = "sem capacidade suficiente no horizonte para o volume restante"
+                    Motivo = _DescreverMotivoNaoAlocado(resultadoOtimizacao.MotivoNaoAlocadoPorItem[kv.Key])
                 };
             }).OrderByDescending(n => n.VolumeM3).ToList(),
             Notas = notas
         };
     }
 
-    private static PedidoOtimizadoResponse MapearPedido(PedidoOtimizado pedido)
+    private static PedidoOtimizadoResponse MapearPedido(PedidoOtimizado pedido, List<PedidoOtimizadoMotivoResponse> motivos)
     {
         return new PedidoOtimizadoResponse
         {
@@ -347,10 +433,26 @@ public class OtimizadorService : ServiceBase, IOtimizadorService
             Ano = pedido.Ano,
             Semana = pedido.Semana,
             Pinado = pedido.Pinado,
-            ScorePeso = pedido.ScorePeso
+            ScorePeso = pedido.ScorePeso,
+            Motivos = motivos
         };
     }
 
     // Mesma resolução usada pelo critério "Tipo de Cliente" (AvaliadorCriterios.ObterValorCampo).
     private static string _TipoCliente(bool industria) => industria ? "INDUSTRIA" : "REVENDA";
+
+    private static PedidoOtimizadoMotivoResponse _MapearMotivo(PedidoOtimizadoMotivo motivo) => new()
+    {
+        Categoria = motivo.CategoriaEnum,
+        Motivo = motivo.MotivoEnum
+    };
+
+    // Descrição livre persistida em PedidoOtimizadoNaoAlocado.Motivo (categoria "Porque não alocado" —
+    // sem tela própria hoje, ao contrário dos pedidos alocados, que expõem Motivos estruturado via API).
+    private static string _DescreverMotivoNaoAlocado(MotivoAlocacaoEnum motivo) => motivo switch
+    {
+        MotivoAlocacaoEnum.LoteMinimoMaiorQueParametrizado =>
+            "lote mínimo maior que o parametrizado — volume do item abaixo da carreta mínima configurada",
+        _ => "despriorizado — capacidade do horizonte foi alocada a itens de maior prioridade"
+    };
 }

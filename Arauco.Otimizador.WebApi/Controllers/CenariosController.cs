@@ -133,10 +133,22 @@ public class CenariosController : BaseController
         return await otimizadorService.ListarPedidosDaSemanaAsync(id, ano, semana);
     }
 
+    [HttpGet("{id}/otimizar/nao-alocados")]
+    public async Task<List<PedidoOtimizadoNaoAlocadoResponse>> ListarNaoAlocadosAsync(string id)
+    {
+        return await otimizadorService.ListarNaoAlocadosAsync(id);
+    }
+
     [HttpPatch("{id}/otimizar/pedidos/mover")]
     public async Task<PedidoOtimizadoResponse> MoverPedidoOtimizadoAsync(string id, [FromBody] MoverPedidoOtimizadoRequest model)
     {
         return await otimizadorService.MoverPedidoAsync(id, model);
+    }
+
+    [HttpPatch("{id}/otimizar/pedidos/pin")]
+    public async Task<PedidoOtimizadoResponse> AlternarPinPedidoOtimizadoAsync(string id, [FromBody] AlternarPinPedidoRequest model)
+    {
+        return await otimizadorService.AlternarPinAsync(id, model);
     }
 
     [HttpPost("{id}/enriquecer")]

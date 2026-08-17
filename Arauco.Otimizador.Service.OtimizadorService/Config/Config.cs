@@ -44,8 +44,8 @@ public sealed class Config
 public sealed class Carreta
 {
     public bool Ativa { get; set; } = true;
-    public double MinimoM3 { get; set; } = 25;
-    public double MaximoM3 { get; set; } = 30;
+    public double MinimoM3 { get; set; } = 30;
+    public double MaximoM3 { get; set; } = 40;
     public double? MinimoSkuM3 { get; set; }
     public int MaximoCarretasPorEmbarque { get; set; } = 400;
 }

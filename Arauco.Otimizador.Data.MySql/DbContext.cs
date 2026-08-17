@@ -30,6 +30,7 @@ public class DbContext : Microsoft.EntityFrameworkCore.DbContext
     public DbSet<Entities.Otimizador.CenarioOtimizacaoResultado> CenarioOtimizacaoResultado { get; set; }
     public DbSet<Entities.Otimizador.PedidoOtimizado> PedidoOtimizado { get; set; }
     public DbSet<Entities.Otimizador.PedidoOtimizadoNaoAlocado> PedidoOtimizadoNaoAlocado { get; set; }
+    public DbSet<Entities.Otimizador.PedidoOtimizadoMotivo> PedidoOtimizadoMotivo { get; set; }
 
     // Dataset (master data consumida pelo motor de otimização)
     public DbSet<Entities.Dataset.Centro> Centro { get; set; }
@@ -116,6 +117,17 @@ public class DbContext : Microsoft.EntityFrameworkCore.DbContext
         modelBuilder.Entity<Entities.Otimizador.PedidoOtimizadoNaoAlocado>(n =>
         {
             n.HasKey(x => x.NaoAlocadoId);
+
+            n.Property(x => x.CategoriaEnum).HasColumnName("CategoriaId");
+            n.Property(x => x.MotivoEnum).HasColumnName("MotivoId");
+        });
+
+        modelBuilder.Entity<Entities.Otimizador.PedidoOtimizadoMotivo>(m =>
+        {
+            m.HasKey(x => x.Id);
+
+            m.Property(x => x.CategoriaEnum).HasColumnName("CategoriaId");
+            m.Property(x => x.MotivoEnum).HasColumnName("MotivoId");
         });
 
         // Dataset

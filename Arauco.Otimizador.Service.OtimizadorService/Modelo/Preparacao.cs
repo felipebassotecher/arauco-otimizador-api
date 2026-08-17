@@ -24,6 +24,10 @@ public sealed record Preparacao(
     double DemandaElegivelM3,
     double DemandaExcluidaM3);
 
+// Cada linha de LinhaCarteira (= cada Demanda) vira exatamente um Item — sem agrupar por
+// (cliente, produto). Isso garante que uma demanda gere, ao final da otimização, no máximo um
+// pedido: Otimizacao.cs também aloca cada Item inteiro em um único bucket (centro, semana), nunca
+// dividido entre vários.
 public static class Preparador
 {
     public static Preparacao Preparar(
@@ -37,22 +41,19 @@ public static class Preparador
         var itens = new List<Item>();
         var excluidos = new List<ItemExcluido>();
         var indice = 0;
-        var incotermsMistos = 0;
-        var segmentosMistos = 0;
 
-        var grupos = dados.Carteira
-            .GroupBy(l => (l.ClienteId, l.ProdutoId))
-            .OrderBy(g => g.Key.ClienteId).ThenBy(g => g.Key.ProdutoId);
+        var linhas = dados.Carteira
+            .OrderBy(l => l.ClienteId).ThenBy(l => l.ProdutoId).ThenBy(l => l.CarteiraId);
 
-        foreach (var grupo in grupos)
+        foreach (var linha in linhas)
         {
-            var (clienteId, produtoId) = grupo.Key;
-            var volume = grupo.Sum(l => l.VolumeM3);
-            var primeira = grupo.First();
+            var clienteId = linha.ClienteId;
+            var produtoId = linha.ProdutoId;
+            var volume = linha.VolumeM3;
 
             if (!dados.Produtos.TryGetValue(produtoId, out var produto))
             {
-                excluidos.Add(new ItemExcluido(clienteId, produtoId, primeira.LinhaProdutoId,
+                excluidos.Add(new ItemExcluido(clienteId, produtoId, 0,
                     volume, MotivoExclusao.ProdutoDesconhecido));
                 continue;
             }
@@ -87,41 +88,20 @@ public static class Preparador
                 continue;
             }
 
-            var minimoSku = config.Carreta.MinimoSkuM3 ?? config.ChapasPorLote * chapa;
-            var piso = Math.Min(Math.Max(loteMinimoM3, minimoSku), volume);
-
-            var incoterms = primeira.Incoterms;
-            var segmento = grupo.Select(l => l.Segmento).FirstOrDefault(s => !string.IsNullOrWhiteSpace(s)) ?? "";
-
-            if (grupo.Select(l => l.Incoterms.StartsWith("CIF", StringComparison.OrdinalIgnoreCase))
-                     .Distinct().Count() > 1)
-                incotermsMistos++;
-            if (grupo.Where(l => !string.IsNullOrWhiteSpace(l.Segmento))
-                     .Select(l => l.Segmento.Contains("IND", StringComparison.OrdinalIgnoreCase))
-                     .Distinct().Count() > 1)
-                segmentosMistos++;
-
             itens.Add(new Item(
                 Indice: indice++,
                 ClienteId: clienteId,
-                ClienteNome: primeira.ClienteNome,
+                ClienteNome: linha.ClienteNome,
                 ProdutoId: produtoId,
                 LinhaProdutoId: produto.LinhaProdutoId,
                 VolumeM3: volume,
-                DataDocumentoMaisAntiga: grupo.Min(l => l.DataDocumento),
-                Cif: incoterms.StartsWith("CIF", StringComparison.OrdinalIgnoreCase),
-                Industria: segmento.Contains("IND", StringComparison.OrdinalIgnoreCase),
-                LoteMinimoM3: piso,
+                DataDocumentoMaisAntiga: linha.DataDocumento,
+                Cif: linha.Incoterms.StartsWith("CIF", StringComparison.OrdinalIgnoreCase),
+                Industria: linha.Segmento.Contains("IND", StringComparison.OrdinalIgnoreCase),
+                LoteMinimoM3: loteMinimoM3,
                 CentrosElegiveis: validos,
-                CarteiraIds: grupo.Select(l => l.CarteiraId).ToList()));
+                CarteiraIds: [linha.CarteiraId]));
         }
-
-        if (incotermsMistos > 0)
-            notas.Add($"pre-flight: {incotermsMistos} item(ns) (cliente, produto) com linhas CIF e FOB "
-                      + "misturadas — adotado o incoterm da primeira linha");
-        if (segmentosMistos > 0)
-            notas.Add($"pre-flight: {segmentosMistos} item(ns) com segmento divergente entre linhas "
-                      + "— adotado o primeiro não vazio");
 
         var total = dados.Carteira.Sum(l => l.VolumeM3);
         var elegivel = itens.Sum(i => i.VolumeM3);

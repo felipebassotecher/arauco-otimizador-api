@@ -1,3 +1,4 @@
+using Arauco.Otimizador.Common.Domain.Enums.Otimizador;
 using Arauco.Otimizador.Data.Entities.Cenario;
 using Arauco.Otimizador.Service.OtimizadorService.Capacidade;
 using Arauco.Otimizador.Service.OtimizadorService.Dados;
@@ -5,8 +6,11 @@ using Google.OrTools.Sat;
 
 namespace Arauco.Otimizador.Service.OtimizadorService.Modelo;
 
+public sealed record MotivoAlocacao(CategoriaMotivoEnum Categoria, MotivoAlocacaoEnum Motivo);
+
 public sealed record Alocacao(
-    int ItemIndice, int CentroId, int IndiceSemana, double VolumeM3, int ScorePeso);
+    int ItemIndice, int CentroId, int IndiceSemana, double VolumeM3, int ScorePeso,
+    IReadOnlyList<MotivoAlocacao> Motivos);
 
 public sealed record Embarque(
     string ClienteId, int CentroId, int IndiceSemana, int Carretas, double VolumeM3);
@@ -17,13 +21,18 @@ public sealed record ResultadoOtimizacao(
     double Objetivo,
     IReadOnlyList<Alocacao> Alocacoes,
     IReadOnlyDictionary<int, double> NaoAlocadoPorItem,
+    IReadOnlyDictionary<int, MotivoAlocacaoEnum> MotivoNaoAlocadoPorItem,
     int Variaveis,
     int Binarias,
     IReadOnlyList<Embarque> Embarques);
 
-// Modelo CP-SAT do motor: restrições de capacidade/lote mínimo/carreta, com o objetivo ponderado
-// pelos critérios personalizados do cenário (CenarioCriterio) em vez de pesos fixos no código. Os
-// itens já chegam com o volume pinado descontado (ver OtimizadorService.DescontarPinados).
+// Modelo CP-SAT do motor: restrições de carreta, com o objetivo ponderado pelos critérios
+// personalizados do cenário (CenarioCriterio) em vez de pesos fixos no código. Os itens já chegam
+// com o volume pinado descontado (ver OtimizadorService.DescontarPinados).
+//
+// Cada item (= cada demanda, ver Preparacao.cs) é alocado inteiro em no máximo um bucket (centro,
+// semana) — nunca dividido entre vários. Isso garante que uma demanda gere, ao final, no máximo um
+// pedido: ou o item inteiro cai em um único bucket, ou fica inteiro como "não alocado" (slack).
 public static class Otimizacao
 {
     public const int Escala = 10;
@@ -49,12 +58,10 @@ public static class Otimizacao
 
         var modelo = new CpModel();
 
-        var x = new Dictionary<(int, int, int), IntVar>();
         var y = new Dictionary<(int, int, int), BoolVar>();
         var slack = new Dictionary<int, IntVar>();
         var contribuicao = new Dictionary<(int, int, int), LinearExpr>();
         var itensAtivos = 0;
-        var indivisiveis = 0;
 
         foreach (var item in itens)
         {
@@ -62,7 +69,6 @@ public static class Otimizacao
             if (volume <= 0) continue; // volume já 100% coberto por pin — fora do modelo
 
             itensAtivos++;
-            var piso = Escalar(item.LoteMinimoM3);
             var i = item.Indice;
 
             var baldes = new List<(int Centro, int Semana)>();
@@ -79,45 +85,22 @@ public static class Otimizacao
 
             slack[i] = modelo.NewIntVar(0, volume, $"slack_{i}");
 
-            if (piso >= volume)
-            {
-                indivisiveis++;
-                var escolhas = new List<BoolVar>();
-
-                foreach (var (centro, s) in baldes)
-                {
-                    var vy = modelo.NewBoolVar($"y_{i}_{centro}_{s}");
-                    y[(i, centro, s)] = vy;
-                    escolhas.Add(vy);
-                    contribuicao[(i, centro, s)] = LinearExpr.Term(vy, volume);
-                }
-
-                modelo.Add(LinearExpr.Sum(escolhas) <= 1);
-                modelo.Add(LinearExpr.Sum(escolhas) * volume + slack[i] == volume);
-                continue;
-            }
-
-            var parcelas = new List<LinearExpr> { slack[i] };
+            var escolhas = new List<BoolVar>();
 
             foreach (var (centro, s) in baldes)
             {
-                var vx = modelo.NewIntVar(0, volume, $"x_{i}_{centro}_{s}");
                 var vy = modelo.NewBoolVar($"y_{i}_{centro}_{s}");
-
-                modelo.Add(vx <= volume * vy);
-                modelo.Add(vx >= piso * vy);
-
-                x[(i, centro, s)] = vx;
                 y[(i, centro, s)] = vy;
-                contribuicao[(i, centro, s)] = vx;
-                parcelas.Add(vx);
+                escolhas.Add(vy);
+                contribuicao[(i, centro, s)] = LinearExpr.Term(vy, volume);
             }
 
-            modelo.Add(LinearExpr.Sum(parcelas) == volume);
+            modelo.Add(LinearExpr.Sum(escolhas) <= 1);
+            modelo.Add(LinearExpr.Sum(escolhas) * volume + slack[i] == volume);
         }
 
-        notas.Add($"modelo: {indivisiveis} item(ns) indivisível(is) de {itensAtivos} "
-                  + "(volume menor que um lote -> embarque todo-ou-nada, sem variável inteira)");
+        notas.Add($"modelo: {itensAtivos} item(ns) — cada um alocado inteiro em no máximo um "
+                  + "bucket (centro, semana), sem divisão (1 demanda gera no máximo 1 pedido)");
 
         // Carreta (m³ mín/máx por embarque) + limite de recebimento por cliente/semana.
         var carretas = new Dictionary<(string Cliente, int Centro, int Semana), IntVar>();
@@ -215,22 +198,37 @@ public static class Otimizacao
 
         var alocacoes = new List<Alocacao>();
         var naoAlocado = new Dictionary<int, double>();
+        var motivoNaoAlocado = new Dictionary<int, MotivoAlocacaoEnum>();
 
         if (status is CpSolverStatus.Optimal or CpSolverStatus.Feasible)
         {
-            foreach (var ((i, centro, s), _) in contribuicao)
+            foreach (var ((i, centro, s), vy) in y)
             {
-                long v = x.TryGetValue((i, centro, s), out var vx)
-                    ? solver.Value(vx)
-                    : (solver.Value(y[(i, centro, s)]) == 1 ? Escalar(itensPorIndice[i].VolumeM3) : 0);
+                if (solver.Value(vy) != 1) continue;
 
-                if (v > 0) alocacoes.Add(new Alocacao(i, centro, s, v / (double)Escala, multiplicadores[i]));
+                var item = itensPorIndice[i];
+                var v = Escalar(item.VolumeM3);
+
+                var motivos = ComputarMotivosSemana(item, centro, s, capacidade)
+                    .Select(m => new MotivoAlocacao(CategoriaMotivoEnum.PorqueNestaSemana, m))
+                    .Append(new MotivoAlocacao(
+                        CategoriaMotivoEnum.PorqueNesteCentro, ComputarMotivoCentro(item, capacidade, semanas)))
+                    .ToList();
+
+                alocacoes.Add(new Alocacao(i, centro, s, v / (double)Escala, multiplicadores[i], motivos));
             }
 
             foreach (var (i, var_) in slack)
             {
                 var v = solver.Value(var_);
-                if (v > 0) naoAlocado[i] = v / (double)Escala;
+                if (v <= 0) continue;
+
+                naoAlocado[i] = v / (double)Escala;
+
+                var item = itensPorIndice[i];
+                motivoNaoAlocado[i] = config.Carreta.Ativa && item.VolumeM3 < config.Carreta.MinimoM3
+                    ? MotivoAlocacaoEnum.LoteMinimoMaiorQueParametrizado
+                    : MotivoAlocacaoEnum.Despriorizado;
             }
         }
 
@@ -258,8 +256,57 @@ public static class Otimizacao
             status is CpSolverStatus.Optimal or CpSolverStatus.Feasible ? solver.ObjectiveValue : double.NaN,
             alocacoes.OrderBy(a => a.IndiceSemana).ThenBy(a => a.CentroId).ToList(),
             naoAlocado,
-            x.Count + slack.Count + carretas.Count,
+            motivoNaoAlocado,
+            slack.Count + carretas.Count,
             y.Count + embarques.Count,
             listaEmbarques.OrderByDescending(e => e.VolumeM3).ToList());
+    }
+
+    // "Porque nesta semana": olha, no centro escolhido, todas as semanas anteriores à escolhida —
+    // se em alguma delas não havia capacidade nenhuma, ou havia capacidade mas insuficiente para o
+    // item inteiro, isso explica por que o item não pôde ser alocado antes. É heurístico (o CP-SAT
+    // não expõe uma "razão" nativa para a escolha entre buckets empatados), não um traço literal do
+    // solver.
+    private static List<MotivoAlocacaoEnum> ComputarMotivosSemana(
+        Item item, int centroEscolhido, int semanaEscolhidaIndice, CapacidadeHorizonte capacidade)
+    {
+        if (semanaEscolhidaIndice == 0)
+            return [MotivoAlocacaoEnum.PrimeiraSemanaHorizonte];
+
+        var motivos = new List<MotivoAlocacaoEnum>();
+
+        for (var s = 0; s < semanaEscolhidaIndice; s++)
+        {
+            var disponivel = capacidade.Disponivel(centroEscolhido, item.LinhaProdutoId, s);
+
+            if (disponivel <= 0)
+            {
+                if (!motivos.Contains(MotivoAlocacaoEnum.SemCapacidadeSemanasAnteriores))
+                    motivos.Add(MotivoAlocacaoEnum.SemCapacidadeSemanasAnteriores);
+            }
+            else if (disponivel < item.VolumeM3 && !motivos.Contains(MotivoAlocacaoEnum.LoteMinimoNaoCabeAntes))
+            {
+                motivos.Add(MotivoAlocacaoEnum.LoteMinimoNaoCabeAntes);
+            }
+        }
+
+        if (motivos.Count == 0)
+            motivos.Add(MotivoAlocacaoEnum.SemCapacidadeSemanasAnteriores);
+
+        return motivos;
+    }
+
+    // "Porque neste centro": conta quantos dos centros elegíveis para o item têm, em pelo menos uma
+    // semana do horizonte, capacidade cadastrada para a linha de produto do item — se mais de um
+    // centro atende, a escolha do solver entre eles foi uma decisão real (empate de custo); se só um
+    // atende, não havia alternativa.
+    private static MotivoAlocacaoEnum ComputarMotivoCentro(Item item, CapacidadeHorizonte capacidade, int semanas)
+    {
+        var centrosComCapacidade = item.CentrosElegiveis.Count(centro =>
+            Enumerable.Range(0, semanas).Any(s => capacidade.Disponivel(centro, item.LinhaProdutoId, s) > 0));
+
+        return centrosComCapacidade > 1
+            ? MotivoAlocacaoEnum.PlantaEscolhidaEntreElegiveis
+            : MotivoAlocacaoEnum.UnicaPlantaElegivelComCapacidade;
     }
 }

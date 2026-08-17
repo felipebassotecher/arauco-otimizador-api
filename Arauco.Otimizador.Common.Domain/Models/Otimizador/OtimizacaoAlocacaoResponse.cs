@@ -14,4 +14,5 @@ public class OtimizacaoAlocacaoResponse
     public int Semana { get; set; }
     public bool Pinado { get; set; }
     public int ScorePeso { get; set; }
+    public List<PedidoOtimizadoMotivoResponse> Motivos { get; set; }
 }

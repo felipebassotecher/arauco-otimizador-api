@@ -26,6 +26,7 @@ public interface IUnitOfWork
     IGenericRepository<Otimizador.CenarioOtimizacaoResultado> CenarioOtimizacaoResultadoRepository { get; }
     IGenericRepository<Otimizador.PedidoOtimizado> PedidoOtimizadoRepository { get; }
     IGenericRepository<Otimizador.PedidoOtimizadoNaoAlocado> PedidoOtimizadoNaoAlocadoRepository { get; }
+    IGenericRepository<Otimizador.PedidoOtimizadoMotivo> PedidoOtimizadoMotivoRepository { get; }
 
     // Dataset (master data consumida pelo motor de otimização — ver Data.Entities/Dataset)
     IGenericRepository<Dataset.Centro> CentroRepository { get; }
