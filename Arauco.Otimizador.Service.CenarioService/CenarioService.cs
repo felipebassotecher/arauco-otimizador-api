@@ -10,6 +10,7 @@ using Arauco.Otimizador.Data.Entities.Cenario;
 using Arauco.Otimizador.Data.Entities.Demanda;
 using Arauco.Otimizador.Data.Entities.Pedido;
 using Arauco.Otimizador.Service.Base;
+using Arauco.Otimizador.Service.OtimizadorService.Dados;
 using Microsoft.EntityFrameworkCore;
 using System.Globalization;
 using Techer.Common.Domain.Exceptions;
@@ -20,10 +21,6 @@ namespace Arauco.Otimizador.Service.CenarioService;
 
 public class CenarioService : ServiceBase, ICenarioService
 {
-    // Capacidade semanal de referência da planta, usada no cálculo de ocupação das métricas.
-    // Não há configuração de capacidade real ainda; ajustar quando existir uma fonte oficial.
-    private const decimal CapacidadeSemanalPlanta = 1000m;
-
     public CenarioService(IUnitOfWork unitOfWork, IEnvironmentVariables environmentVariables) : base(unitOfWork, environmentVariables)
     {
     }
@@ -136,7 +133,7 @@ public class CenarioService : ServiceBase, ICenarioService
 
         var demandas = linhas.Select(linha => new Demanda
         {
-            DemandaId = IdGenerator.NewSync(),
+            DemandaId = IdGenerator.NewSync(12),
             CenarioId = cenarioId,
             CarteiraId = linha.CarteiraId,
             Cliente = linha.Cliente,
@@ -266,7 +263,21 @@ public class CenarioService : ServiceBase, ICenarioService
         await _ObterCenarioAsync(cenarioId);
 
         var demandas = await unitOfWork.DemandaRepository.Where(d => d.CenarioId == cenarioId).ToListAsync();
-        var pedidos = await unitOfWork.PedidoRepository.Where(p => p.CenarioId == cenarioId).ToListAsync();
+
+        // Pedidos e ocupação vêm do motor de otimização (PedidoOtimizado), não do fluxo simples
+        // (Pedido) — mesmo dado que a aba "Pedidos" (OtimizacaoService) e o botão "Processar"
+        // (POST /otimizar) usam, para que Métricas e Pedidos sempre concordem entre si.
+        var pedidos = await unitOfWork.PedidoOtimizadoRepository.Where(p => p.CenarioId == cenarioId).ToListAsync();
+
+        var ultimoResultado = await unitOfWork
+            .CenarioOtimizacaoResultadoRepository
+            .Where(r => r.CenarioId == cenarioId)
+            .OrderByDescending(r => r.GeradoEm)
+            .FirstOrDefaultAsync();
+
+        var naoAlocados = ultimoResultado != null
+            ? await unitOfWork.PedidoOtimizadoNaoAlocadoRepository.Where(n => n.ResultadoId == ultimoResultado.ResultadoId).ToListAsync()
+            : [];
 
         var volumePorSemana = pedidos
             .GroupBy(p => new { p.Ano, p.Semana })
@@ -280,11 +291,50 @@ public class CenarioService : ServiceBase, ICenarioService
             })
             .ToList();
 
+        // Capacidade real declarada por planta/semana (mesma leitura do master data que o motor de
+        // otimização usa — Carregador —, mas sem a calibração/simulação específica de cada execução;
+        // ver comentário em CenarioOcupacaoPlantaResponse).
+        var carregador = await Carregador.CarregarAsync(unitOfWork);
+
+        var capacidadePorCentroSemana = carregador.Capacidade
+            .GroupBy(c => (c.CentroId, c.Semana))
+            .ToDictionary(g => g.Key, g => g.Sum(c => c.Quantidade));
+
+        var volumePorCentroSemana = pedidos
+            .GroupBy(p => (p.CentroId, Semana: new SemanaIso(p.Ano, p.Semana)))
+            .ToDictionary(g => g.Key, g => g.Sum(p => p.Volume));
+
         var ocupacaoPlanta = volumePorSemana
-            .Select(v => new CenarioOcupacaoPlantaResponse
+            .Select(v =>
             {
-                Data = ISOWeek.ToDateTime(v.Ano, v.Semana, DayOfWeek.Monday),
-                Percentual = (double)Math.Min(100m, Math.Round(v.Volume / CapacidadeSemanalPlanta * 100m, 2))
+                var semanaIso = new SemanaIso(v.Ano, v.Semana);
+
+                var plantas = carregador.Centros
+                    .Select(centro =>
+                    {
+                        var alocado = volumePorCentroSemana.GetValueOrDefault((centro.CentroId, semanaIso), 0m);
+                        var capacidade = capacidadePorCentroSemana.GetValueOrDefault((centro.CentroId, semanaIso), 0L);
+
+                        var percentual = capacidade > 0
+                            ? (double)Math.Min(100m, Math.Round(alocado / capacidade * 100m, 2))
+                            : (alocado > 0 ? 100d : 0d);
+
+                        return new CenarioOcupacaoCentroResponse
+                        {
+                            CentroId = centro.CentroId,
+                            Centro = centro.Nome,
+                            Percentual = percentual
+                        };
+                    })
+                    .ToList();
+
+                return new CenarioOcupacaoPlantaResponse
+                {
+                    Ano = v.Ano,
+                    Semana = v.Semana,
+                    Data = ISOWeek.ToDateTime(v.Ano, v.Semana, DayOfWeek.Monday),
+                    Plantas = plantas
+                };
             })
             .ToList();
 
@@ -292,7 +342,11 @@ public class CenarioService : ServiceBase, ICenarioService
         {
             QuantidadeDemandas = demandas.Count,
             QuantidadePedidos = pedidos.Count,
+            PedidosAlocados = pedidos.Count,
+            PedidosNaoAlocados = naoAlocados.Count,
             VolumeTotal = demandas.Sum(d => d.Volume),
+            VolumeTotalAlocado = ultimoResultado?.AlocadoM3 ?? pedidos.Sum(p => p.Volume),
+            VolumeTotalNaoAlocado = ultimoResultado?.NaoAlocadoM3 ?? naoAlocados.Sum(n => n.VolumeM3),
             VolumePorSemana = volumePorSemana,
             OcupacaoPlanta = ocupacaoPlanta
         };
@@ -388,10 +442,13 @@ public class CenarioService : ServiceBase, ICenarioService
             .ToList();
     }
 
+    // Baseado em PedidoOtimizado (motor CP-SAT via POST /otimizar), não no fluxo simples (Pedido/
+    // POST /processar): a aba "Pedidos" do front só lê PedidoOtimizado (OtimizacaoService), então
+    // primeiraSemana/ultimaSemana precisam apontar para semanas que essa aba de fato tem dados.
     private async Task<(SemanaAnoResponse? PrimeiraSemana, SemanaAnoResponse? UltimaSemana)> _ObterSemanasAsync(string cenarioId)
     {
         var pedidos = await unitOfWork
-            .PedidoRepository
+            .PedidoOtimizadoRepository
             .Where(p => p.CenarioId == cenarioId)
             .ToListAsync();
 

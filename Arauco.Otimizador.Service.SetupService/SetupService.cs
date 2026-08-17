@@ -72,6 +72,10 @@ public class SetupService : ServiceBase, ISetupService
             QuantidadeMinimaSkuPorLote = model.QuantidadeMinimaSkuPorLote,
             CapacidadeMaximaRecebimentoCliente = model.CapacidadeMaximaRecebimentoCliente,
             MixTipoFrete = model.MixTipoFrete,
+            Horizonte = model.Horizonte,
+            ModoCapacidade = model.ModoCapacidade,
+            SemanaInicial = model.SemanaInicial,
+            AlvoCapacidadeSobreDemanda = model.AlvoCapacidadeSobreDemanda,
             DataCriacao = DateTime.UtcNow,
             DataAlteracao = null
         };
@@ -98,6 +102,10 @@ public class SetupService : ServiceBase, ISetupService
         setup.QuantidadeMinimaSkuPorLote = model.QuantidadeMinimaSkuPorLote;
         setup.CapacidadeMaximaRecebimentoCliente = model.CapacidadeMaximaRecebimentoCliente;
         setup.MixTipoFrete = model.MixTipoFrete;
+        setup.Horizonte = model.Horizonte;
+        setup.ModoCapacidade = model.ModoCapacidade;
+        setup.SemanaInicial = model.SemanaInicial;
+        setup.AlvoCapacidadeSobreDemanda = model.AlvoCapacidadeSobreDemanda;
         setup.DataAlteracao = DateTime.UtcNow;
 
         var ordensExistentes = await unitOfWork
@@ -138,6 +146,10 @@ public class SetupService : ServiceBase, ISetupService
             QuantidadeMinimaSkuPorLote = setup.QuantidadeMinimaSkuPorLote,
             CapacidadeMaximaRecebimentoCliente = setup.CapacidadeMaximaRecebimentoCliente,
             MixTipoFrete = setup.MixTipoFrete,
+            Horizonte = setup.Horizonte,
+            ModoCapacidade = setup.ModoCapacidade,
+            SemanaInicial = setup.SemanaInicial,
+            AlvoCapacidadeSobreDemanda = setup.AlvoCapacidadeSobreDemanda,
             OrdemImportancia = ordens.Select(o => new SetupOrdemImportanciaResponse
             {
                 Criterio = o.CriterioEnum,
@@ -159,6 +171,7 @@ public class SetupService : ServiceBase, ISetupService
             throw new ApiException("Ordem de importância deve conter ao menos um critério");
 
         _ValidarCamposOperacionais(model.VolumeMinimoCarreta, model.VolumeMaximoCarreta, model.MixTipoFrete);
+        _ValidarParametrosOtimizacao(model.Horizonte, model.SemanaInicial, model.AlvoCapacidadeSobreDemanda);
         _ValidarOrdemImportancia(model.OrdemImportancia);
     }
 
@@ -171,6 +184,7 @@ public class SetupService : ServiceBase, ISetupService
             throw new ApiException("Ordem de importância deve conter ao menos um critério");
 
         _ValidarCamposOperacionais(model.VolumeMinimoCarreta, model.VolumeMaximoCarreta, model.MixTipoFrete);
+        _ValidarParametrosOtimizacao(model.Horizonte, model.SemanaInicial, model.AlvoCapacidadeSobreDemanda);
         _ValidarOrdemImportancia(model.OrdemImportancia);
     }
 
@@ -187,6 +201,23 @@ public class SetupService : ServiceBase, ISetupService
 
         if (mixTipoFrete.HasValue && (mixTipoFrete.Value < 0 || mixTipoFrete.Value > 100))
             throw new ApiException("Mix de tipo de frete deve estar entre 0 e 100");
+    }
+
+    // Mesmas regras que Config.cs/ProvedorCapacidade.MontarSemanas já aplicam no motor de otimização
+    // (ver docs-fluxo-otimizacao.pdf) — validadas aqui só na entrada, o motor ainda não lê estes campos.
+    private static readonly System.Text.RegularExpressions.Regex SemanaIsoRegex =
+        new(@"^\d{4}-[Ww]\d{1,2}$", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    private static void _ValidarParametrosOtimizacao(int? horizonte, string? semanaInicial, decimal? alvoCapacidadeSobreDemanda)
+    {
+        if (horizonte.HasValue && horizonte.Value <= 0)
+            throw new ApiException("Horizonte deve ser maior que zero");
+
+        if (!string.IsNullOrWhiteSpace(semanaInicial) && !SemanaIsoRegex.IsMatch(semanaInicial.Trim()))
+            throw new ApiException("Semana inicial deve estar no formato AAAA-Wss (ex.: 2026-W32)");
+
+        if (alvoCapacidadeSobreDemanda.HasValue && alvoCapacidadeSobreDemanda.Value < 0)
+            throw new ApiException("Alvo de capacidade sobre demanda não pode ser negativo");
     }
 
     private static void _ValidarOrdemImportancia(List<SetupOrdemImportanciaRequest> ordemImportancia)

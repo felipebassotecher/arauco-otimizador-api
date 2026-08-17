@@ -47,7 +47,7 @@ public class DemandaService : ServiceBase, IDemandaService
         {
             demandas.Add(new Demanda
             {
-                DemandaId = await IdGenerator.New(),
+                DemandaId = await IdGenerator.New(12),
                 CenarioId = model.CenarioId,
                 CarteiraId = linha.CarteiraId,
                 Cliente = linha.Cliente,

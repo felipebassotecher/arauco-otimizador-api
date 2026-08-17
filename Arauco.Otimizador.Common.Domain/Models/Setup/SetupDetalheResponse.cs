@@ -1,3 +1,4 @@
+using Arauco.Otimizador.Common.Domain.Enums.Setup;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 
@@ -13,6 +14,13 @@ public class SetupDetalheResponse
     public int? QuantidadeMinimaSkuPorLote { get; set; }
     public int? CapacidadeMaximaRecebimentoCliente { get; set; }
     public int? MixTipoFrete { get; set; }
+    public int? Horizonte { get; set; }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public ModoCapacidadeEnum? ModoCapacidade { get; set; }
+
+    public string? SemanaInicial { get; set; }
+    public decimal? AlvoCapacidadeSobreDemanda { get; set; }
 
     public List<SetupOrdemImportanciaResponse> OrdemImportancia { get; set; }
 

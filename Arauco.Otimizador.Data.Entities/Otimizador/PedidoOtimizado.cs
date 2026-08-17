@@ -13,6 +13,9 @@ public class PedidoOtimizado
     public int CentroId { get; set; }
     public string Centro { get; set; }
     public TipoFreteEnum TipoFreteEnum { get; set; }
+    // Tipo de cliente (Indústria/Revenda), mesma resolução usada pelo critério "Tipo de Cliente"
+    // (AvaliadorCriterios/Item.Industria) — ver Preparacao.cs.
+    public bool Industria { get; set; }
     public decimal Volume { get; set; }
     public int Ano { get; set; }
     public int Semana { get; set; }

@@ -1,3 +1,4 @@
+using Arauco.Otimizador.Common.Domain.Enums.Cenario;
 using Arauco.Otimizador.Common.Domain.Enums.Demanda;
 using Arauco.Otimizador.Common.Domain.Models.Otimizador;
 using Arauco.Otimizador.Common.Domain.Services.Otimizador;
@@ -118,6 +119,7 @@ public class OtimizadorService : ServiceBase, IOtimizadorService
                 CentroId = a.CentroId,
                 Centro = centroNome,
                 TipoFreteEnum = item.Cif ? TipoFreteEnum.CIF : TipoFreteEnum.FOB,
+                Industria = item.Industria,
                 Volume = (decimal)a.VolumeM3,
                 Ano = semana.Ano,
                 Semana = semana.Numero,
@@ -146,6 +148,9 @@ public class OtimizadorService : ServiceBase, IOtimizadorService
 
         await unitOfWork.SaveAsync();
 
+        // Alinha com CenarioService.ProcessarAsync: qualquer um dos dois fluxos que gerar pedidos
+        // marca o cenário como Processado, liberando o submeter (SubmeterAsync exige esse status).
+        cenario.StatusEnum = StatusCenarioEnum.Processado;
         cenario.DataUltimoProcessamento = geradoEm;
         await unitOfWork.SaveAsync();
 
@@ -303,6 +308,7 @@ public class OtimizadorService : ServiceBase, IOtimizadorService
                 CentroId = p.CentroId,
                 Centro = p.Centro,
                 TipoFrete = p.TipoFreteEnum.ToString(),
+                TipoCliente = _TipoCliente(p.Industria),
                 Volume = (double)p.Volume,
                 Ano = p.Ano,
                 Semana = p.Semana,
@@ -336,6 +342,7 @@ public class OtimizadorService : ServiceBase, IOtimizadorService
             CentroId = pedido.CentroId,
             Centro = pedido.Centro,
             TipoFrete = pedido.TipoFreteEnum.ToString(),
+            TipoCliente = _TipoCliente(pedido.Industria),
             Volume = pedido.Volume,
             Ano = pedido.Ano,
             Semana = pedido.Semana,
@@ -343,4 +350,7 @@ public class OtimizadorService : ServiceBase, IOtimizadorService
             ScorePeso = pedido.ScorePeso
         };
     }
+
+    // Mesma resolução usada pelo critério "Tipo de Cliente" (AvaliadorCriterios.ObterValorCampo).
+    private static string _TipoCliente(bool industria) => industria ? "INDUSTRIA" : "REVENDA";
 }

@@ -1,3 +1,5 @@
+using Arauco.Otimizador.Common.Domain.Enums.Setup;
+
 namespace Arauco.Otimizador.Data.Entities.Setup;
 
 public class Setup
@@ -10,6 +12,12 @@ public class Setup
     public int? QuantidadeMinimaSkuPorLote { get; set; }
     public int? CapacidadeMaximaRecebimentoCliente { get; set; }
     public int? MixTipoFrete { get; set; }
+    // Parâmetros do motor de otimização (espelham Config.cs) — ainda não lidos pelo motor em si, já
+    // que Setup não é referenciado por Cenário hoje; ver docs-fluxo-otimizacao.pdf.
+    public int? Horizonte { get; set; }
+    public ModoCapacidadeEnum? ModoCapacidade { get; set; }
+    public string? SemanaInicial { get; set; }
+    public decimal? AlvoCapacidadeSobreDemanda { get; set; }
     public DateTime DataCriacao { get; set; }
     public DateTime? DataAlteracao { get; set; }
 }

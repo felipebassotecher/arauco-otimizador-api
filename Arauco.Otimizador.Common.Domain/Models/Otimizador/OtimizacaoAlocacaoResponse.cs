@@ -8,6 +8,7 @@ public class OtimizacaoAlocacaoResponse
     public int CentroId { get; set; }
     public string Centro { get; set; }
     public string TipoFrete { get; set; }
+    public string TipoCliente { get; set; }
     public double Volume { get; set; }
     public int Ano { get; set; }
     public int Semana { get; set; }

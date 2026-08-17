@@ -35,6 +35,9 @@
     <EmbeddedResource Include="Scripts\Script011 - Ajuste Criterios Setup.sql" />
     <EmbeddedResource Include="Scripts\Script012 - Remove Campos Peso Setup.sql" />
     <EmbeddedResource Include="Scripts\Script013 - Demanda Formato Carteira.sql" />
+    <EmbeddedResource Include="Scripts\Script014 - Alteracao Tamanho Id Demanda.sql" />
+    <EmbeddedResource Include="Scripts\Script015 - Tipo Cliente Pedido Otimizado.sql" />
+    <EmbeddedResource Include="Scripts\Script016 - Parametros Otimizacao Setup.sql" />
   </ItemGroup>
 
   <ItemGroup>

@@ -59,7 +59,7 @@ static async Task RodarCenarioAsync(Carregador carregadorBase)
         var produto = produtosElegiveis[i];
         demandas.Add(new Demanda
         {
-            DemandaId = $"TST{i:D3}",
+            DemandaId = $"TSTDEMANDA{i:D2}",
             CenarioId = "TESTE1",
             CarteiraId = i + 1,
             Cliente = $"CLIENTE_TESTE_{i + 1}",

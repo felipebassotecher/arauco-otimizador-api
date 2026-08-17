@@ -11,6 +11,7 @@
     <ProjectReference Include="..\Arauco.Otimizador.Common.Storage\Arauco.Otimizador.Common.Storage.csproj" />
     <ProjectReference Include="..\Arauco.Otimizador.Data.Entities\Arauco.Otimizador.Data.Entities.csproj" />
     <ProjectReference Include="..\Arauco.Otimizador.Service.Base\Arauco.Otimizador.Service.Base.csproj" />
+    <ProjectReference Include="..\Arauco.Otimizador.Service.OtimizadorService\Arauco.Otimizador.Service.OtimizadorService.csproj" />
     <ProjectReference Include="..\Techer.Common.Id\Techer.Common.Id.csproj" />
   </ItemGroup>
 

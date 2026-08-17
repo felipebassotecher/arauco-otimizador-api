@@ -88,6 +88,8 @@ public class DbContext : Microsoft.EntityFrameworkCore.DbContext
         modelBuilder.Entity<Entities.Setup.Setup>(s =>
         {
             s.HasKey(x => x.SetupId);
+
+            s.Property(x => x.ModoCapacidade).HasColumnName("ModoCapacidadeId");
         });
 
         modelBuilder.Entity<Entities.Setup.SetupOrdemImportancia>(o =>
