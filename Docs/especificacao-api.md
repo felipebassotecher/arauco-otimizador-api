@@ -318,8 +318,18 @@ Corpo `multipart/form-data` com um único campo de arquivo.
 
 ### 3.7 `CenarioOcupacaoPlantaResponse`
 
+Uma linha por planta (Centro), somada sobre todo o horizonte do cenário (a janela de semanas
+coberta pelos pedidos otimizados dele). `capacidadeTotalM3` vem da capacidade real declarada
+(importada do ADC), não da capacidade calibrada/simulada que o motor de otimização usou.
+
 ```json
-{ "data": "Date (ISO 8601)", "percentual": "number (0-100)" }
+{
+  "centroId": "number",
+  "centro": "string",
+  "capacidadeTotalM3": "number",
+  "volumeAlocadoM3": "number",
+  "percentual": "number (0-100)"
+}
 ```
 
 ### 3.8 `SemanaAnoResponse`

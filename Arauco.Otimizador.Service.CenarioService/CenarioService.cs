@@ -300,40 +300,42 @@ public class CenarioService : ServiceBase, ICenarioService
             .GroupBy(c => (c.CentroId, c.Semana))
             .ToDictionary(g => g.Key, g => g.Sum(c => c.Quantidade));
 
-        var volumePorCentroSemana = pedidos
-            .GroupBy(p => (p.CentroId, Semana: new SemanaIso(p.Ano, p.Semana)))
+        // Horizonte do cenário = janela contínua da primeira à última semana com pedido alocado.
+        // Não fica persistido o horizonte configurado na execução (Config.Horizonte), então esta é a
+        // melhor aproximação disponível a partir do que de fato foi otimizado.
+        var semanasHorizonte = new List<SemanaIso>();
+        if (pedidos.Count > 0)
+        {
+            var semanasPedidos = pedidos.Select(p => new SemanaIso(p.Ano, p.Semana)).ToList();
+            var semanaMin = semanasPedidos.Min();
+            var semanaMax = semanasPedidos.Max();
+
+            for (var semana = semanaMin; semana.CompareTo(semanaMax) <= 0; semana = semana.Somar(1))
+                semanasHorizonte.Add(semana);
+        }
+
+        var volumeAlocadoPorCentro = pedidos
+            .GroupBy(p => p.CentroId)
             .ToDictionary(g => g.Key, g => g.Sum(p => p.Volume));
 
-        var ocupacaoPlanta = volumePorSemana
-            .Select(v =>
+        var ocupacaoPlanta = carregador.Centros
+            .Select(centro =>
             {
-                var semanaIso = new SemanaIso(v.Ano, v.Semana);
+                var capacidadeTotal = semanasHorizonte
+                    .Sum(s => capacidadePorCentroSemana.GetValueOrDefault((centro.CentroId, s), 0L));
+                var volumeAlocado = volumeAlocadoPorCentro.GetValueOrDefault(centro.CentroId, 0m);
 
-                var plantas = carregador.Centros
-                    .Select(centro =>
-                    {
-                        var alocado = volumePorCentroSemana.GetValueOrDefault((centro.CentroId, semanaIso), 0m);
-                        var capacidade = capacidadePorCentroSemana.GetValueOrDefault((centro.CentroId, semanaIso), 0L);
-
-                        var percentual = capacidade > 0
-                            ? (double)Math.Min(100m, Math.Round(alocado / capacidade * 100m, 2))
-                            : (alocado > 0 ? 100d : 0d);
-
-                        return new CenarioOcupacaoCentroResponse
-                        {
-                            CentroId = centro.CentroId,
-                            Centro = centro.Nome,
-                            Percentual = percentual
-                        };
-                    })
-                    .ToList();
+                var percentual = capacidadeTotal > 0
+                    ? (double)Math.Min(100m, Math.Round(volumeAlocado / capacidadeTotal * 100m, 2))
+                    : (volumeAlocado > 0 ? 100d : 0d);
 
                 return new CenarioOcupacaoPlantaResponse
                 {
-                    Ano = v.Ano,
-                    Semana = v.Semana,
-                    Data = ISOWeek.ToDateTime(v.Ano, v.Semana, DayOfWeek.Monday),
-                    Plantas = plantas
+                    CentroId = centro.CentroId,
+                    Centro = centro.Nome,
+                    CapacidadeTotalM3 = capacidadeTotal,
+                    VolumeAlocadoM3 = (double)volumeAlocado,
+                    Percentual = percentual
                 };
             })
             .ToList();
